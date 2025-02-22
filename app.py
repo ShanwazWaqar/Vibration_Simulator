@@ -47,6 +47,11 @@ def serve_build_files(filename):
 def serve_template_files(filename):
     return send_from_directory("static/Try_web_build/TemplateData", filename)
 
+# Add a route for root-level static files in Try_web_build
+@app.route('/game/<path:filename>')
+def serve_game_root_files(filename):
+    return send_from_directory("static/Try_web_build", filename)
+
 @app.route('/healthz')
 def health_check():
     try:
