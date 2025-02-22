@@ -47,5 +47,12 @@ def serve_build_files(filename):
 def serve_template_files(filename):
     return send_from_directory("static/Try_web_build/TemplateData", filename)
 
+@app.route('/healthz')
+def health_check():
+    try:
+        return jsonify({"status": "healthy"}), 200
+    except Exception as e:
+        return jsonify({"status": "unhealthy", "error": str(e)}), 500
+
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=5000, debug=True)
