@@ -2,7 +2,7 @@ from flask import Flask, request, jsonify, render_template, send_from_directory
 from flask_cors import CORS  # Allow WebGL CORS requests
 import os
 
-app = Flask(__name__, static_folder="static")  # Ensure Flask serves static files
+app = Flask(__name__, static_folder="static",template_folder="templates")  # Ensure Flask serves static files
 CORS(app)  # Enable CORS to avoid browser security issues
 
 # Store received parameters
