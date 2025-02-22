@@ -17,16 +17,20 @@ def index():
 @app.route('/set-data', methods=['POST'])
 def set_data():
     global simulation_data
-    simulation_data = request.json  # Store received data
+    simulation_data = request.json
     print("Received Data:", simulation_data)
-
-    # Redirect to the Unity WebGL game
-    return jsonify({"message": "Data received! Redirecting...", "redirect_url": "/game"})
+    response = jsonify({"message": "Data received! Redirecting...", "redirect_url": "/game"})
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    return response
 
 # Unity WebGL fetches stored parameters
 @app.route('/get-data', methods=['GET'])
 def get_data():
-    return jsonify(simulation_data)  # Unity fetches this
+    response = jsonify(simulation_data)
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Methods', 'GET, POST')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
+    return response # Unity fetches this
 
 # ✅ FIX: Serve Unity WebGL `index.html`
 @app.route('/game')
@@ -41,11 +45,19 @@ def game():
 
 @app.route('/game/Build/<path:filename>')
 def serve_build_files(filename):
-    return send_from_directory("static/Try_web_build/Build", filename)
+    try:
+        return send_from_directory("static/Try_web_build/Build", filename)
+    except Exception as e:
+        print(f"Error serving build file {filename}: {str(e)}")
+        return "", 404
 
 @app.route('/game/TemplateData/<path:filename>')
 def serve_template_files(filename):
-    return send_from_directory("static/Try_web_build/TemplateData", filename)
+    try:
+        return send_from_directory("static/Try_web_build/TemplateData", filename)
+    except Exception as e:
+        print(f"Error serving template file {filename}: {str(e)}")
+        return "", 404
 
 # Add a route for root-level static files in Try_web_build
 @app.route('/game/<path:filename>')

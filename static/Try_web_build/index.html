@@ -57,7 +57,7 @@
         #unity-logo {
             width: 154px;
             height: 130px;
-            background: url('TemplateData/unity-logo-dark.png') no-repeat center;
+            background: url('/game/TemplateData/unity-logo-dark.png') no-repeat center;
             background-size: contain;
         }
 
@@ -65,7 +65,7 @@
             width: 141px;
             height: 18px;
             margin: 10px 0;
-            background: url('TemplateData/progress-bar-empty-dark.png') no-repeat center;
+            background: url('/game/TemplateData/progress-bar-empty-dark.png') no-repeat center;
             background-size: contain;
         }
 
@@ -73,7 +73,7 @@
             width: 0%;
             height: 18px;
             margin: 10px 0;
-            background: url('TemplateData/progress-bar-full-dark.png') no-repeat center;
+            background: url('/game/TemplateData/progress-bar-full-dark.png') no-repeat center;
             background-size: contain;
         }
 
@@ -94,7 +94,7 @@
         #unity-fullscreen-button {
             width: 38px;
             height: 38px;
-            background: url('TemplateData/fullscreen-button.png') no-repeat center;
+            background: url('/game/TemplateData/fullscreen-button.png') no-repeat center;
             background-size: contain;
             cursor: pointer;
             opacity: 0.8;
@@ -257,6 +257,13 @@
 
         var script = document.createElement("script");
         script.src = loaderUrl;
+
+        // Add the error handling here, before the onload handler
+        script.onerror = (error) => {
+            console.error("Error loading Unity loader:", error);
+            alert("Failed to load the simulation. Please try refreshing the page.");
+        };
+
         script.onload = () => {
             createUnityInstance(canvas, config, (progress) => {
                 progressBarFull.style.width = 100 * progress + "%";
