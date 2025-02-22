@@ -54,5 +54,9 @@ def health_check():
     except Exception as e:
         return jsonify({"status": "unhealthy", "error": str(e)}), 500
 
-if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=5000, debug=True)
+#  For production with gunicorn
+app.config['PROPAGATE_EXCEPTIONS'] = True
+
+# Remove the if __name__ block for production
+# if __name__ == '__main__':
+#     app.run(host="0.0.0.0", port=5000, debug=True)
