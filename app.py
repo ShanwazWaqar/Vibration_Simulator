@@ -1,12 +1,19 @@
-from flask import Flask, request, jsonify, render_template, send_from_directory
+from flask import Flask, request, jsonify, render_template, send_from_directory, redirect
 from flask_cors import CORS  # Allow WebGL CORS requests
 import os
 
-app = Flask(__name__, static_folder="static",template_folder="templates")  # Ensure Flask serves static files
-CORS(app)  # Enable CORS to avoid browser security issues
+app = Flask(__name__, static_folder="static", template_folder="templates")  # Ensure Flask serves static files
+CORS(app, resources={r"/*": {"origins": "*"}})  # Allow all CORS requests
 
 # Store received parameters
 simulation_data = {}
+
+@app.before_request
+def before_request():
+    """Automatically upgrade HTTP to HTTPS in production"""
+    if "localhost" not in request.url and request.headers.get("X-Forwarded-Proto", "http") == "http":
+        url = request.url.replace("http://", "https://", 1)
+        return redirect(url, code=301)
 
 # Serve the HTML form where the user enters parameters
 @app.route('/')
@@ -19,30 +26,19 @@ def set_data():
     global simulation_data
     simulation_data = request.json
     print("Received Data:", simulation_data)
-    response = jsonify({"message": "Data received! Redirecting...", "redirect_url": "/game"})
-    response.headers.add('Access-Control-Allow-Origin', '*')
-    return response
+    return jsonify({"message": "Data received!", "redirect_url": "/game"})
 
 # Unity WebGL fetches stored parameters
 @app.route('/get-data', methods=['GET'])
 def get_data():
-    response = jsonify(simulation_data)
-    response.headers.add('Access-Control-Allow-Origin', '*')
-    response.headers.add('Access-Control-Allow-Methods', 'GET, POST')
-    response.headers.add('Access-Control-Allow-Headers', 'Content-Type')
-    return response # Unity fetches this
+    return jsonify(simulation_data)
 
-# ✅ FIX: Serve Unity WebGL `index.html`
+# ✅ Serve Unity WebGL `index.html`
 @app.route('/game')
 def game():
     return send_from_directory("static/Try_web_build", "index.html")
 
-# # ✅ FIX: Serve **all** Unity WebGL files (CSS, JS, Data, WASM)
-# @app.route('/game/<path:filename>')
-# def serve_game_files(filename):
-#     webgl_folder = os.path.join("static", "Try_web_build")  # Full path to WebGL files
-#     return send_from_directory(webgl_folder, filename)  # Serve WebGL files
-
+# ✅ Serve Build files properly
 @app.route('/game/Build/<path:filename>')
 def serve_build_files(filename):
     try:
@@ -51,6 +47,7 @@ def serve_build_files(filename):
         print(f"Error serving build file {filename}: {str(e)}")
         return "", 404
 
+# ✅ Serve TemplateData files
 @app.route('/game/TemplateData/<path:filename>')
 def serve_template_files(filename):
     try:
@@ -59,7 +56,7 @@ def serve_template_files(filename):
         print(f"Error serving template file {filename}: {str(e)}")
         return "", 404
 
-# Add a route for root-level static files in Try_web_build
+# ✅ Add a route for root-level static files in Try_web_build
 @app.route('/game/<path:filename>')
 def serve_game_root_files(filename):
     return send_from_directory("static/Try_web_build", filename)
@@ -71,9 +68,9 @@ def health_check():
     except Exception as e:
         return jsonify({"status": "unhealthy", "error": str(e)}), 500
 
-#  For production with gunicorn
-app.config['PROPAGATE_EXCEPTIONS'] = True
-
-# Remove the if __name__ block for production
 # if __name__ == '__main__':
 #     app.run(host="0.0.0.0", port=5000, debug=True)
+
+
+#  For production with gunicorn
+app.config['PROPAGATE_EXCEPTIONS'] = True

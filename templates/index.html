@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
     <title>Vibration Platform Simulator</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -170,12 +171,25 @@
                 pyramidCount: document.getElementById("pyramidCount").value
             };
 
-            fetch("/set-data", {
+            let backendURL;
+            if (window.location.protocol === "https:") {
+                backendURL = "https://" + window.location.hostname.replace("www.", "") + "/";
+            } else {
+                backendURL = "http://" + window.location.hostname.replace("www.", "") + "/";
+            }
+
+            if (window.location.hostname.includes("localhost")) {
+                backendURL = "http://localhost:5000";
+            }
+
+            console.log("Using Backend URL:", backendURL);
+
+            fetch(`${backendURL}/set-data`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json"
                 },
-                credentials: 'same-origin',
+                credentials: "same-origin",
                 body: JSON.stringify(formData)
             })
             .then(response => response.json())
