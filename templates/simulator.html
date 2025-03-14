@@ -1,0 +1,242 @@
+{% extends "base.html" %}
+
+{% block title %}4D Printing Simulator{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/simulator.css') }}">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.3.0/css/all.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.css">
+{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="card main-card">
+    <div class="header-section">
+      <div class="animated-particles">
+        <div class="particle p1"></div>
+        <div class="particle p2"></div>
+        <div class="particle p3"></div>
+        <div class="particle p4"></div>
+        <div class="particle p5"></div>
+      </div>
+      <h2 class="title">4D Printing Simulator</h2>
+      <div class="title-underline"></div>
+    </div>
+    
+    <div class="content-section" data-aos="fade-up" data-aos-delay="100">
+      <p class="description">
+        Self-organization is a process through which a 3D printed object transforms itself into another object/structure 
+        under the influence of an external stimuli such as vibration, temperature, or light. This process provides the 
+        ability for material designs to change form and function after they are built, providing additional capabilities 
+        and performance driven applications. 4D-printing technology uses smart/intelligent materials and manufacturing 
+        designs to forecast change processes and can be applied to various fields from aerospace, medical devices, 
+        construction, soft robotics, textile industries, batteries, and bio-printing.
+      </p>
+    </div>
+
+    <!-- 4D Printing Examples Section with Videos -->
+    <div class="content-section" data-aos="fade-up" data-aos-delay="200">
+      <div class="section-header">
+        <div class="section-icon">
+          <i class="fas fa-video"></i>
+        </div>
+        <h3 class="section-title">4D Printing Examples</h3>
+      </div>
+      <div class="section-line"></div>
+      <p>
+        The following examples demonstrate how vibration-induced self-organization can be applied in 4D printing:
+      </p>
+
+      <div class="examples-grid">
+        <!-- Example 1 with YouTube Video -->
+        <div class="example-box" data-aos="fade-up" data-aos-delay="100">
+          <div class="example-video-wrapper">
+            <div class="example-video">
+              <iframe 
+                width="100%" 
+                height="100%" 
+                src="https://www.youtube.com/embed/a7hIvbKbceY" 
+                title="Sphere Formation"
+                frameborder="0" 
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                allowfullscreen>
+              </iframe>
+            </div>
+          </div>
+          <div class="example-content">
+            <div class="example-header">
+              <div class="example-number">01</div>
+              <h4 class="example-title">Sphere Formation</h4>
+            </div>
+            <p>Quarter sphere agents self-organize into a complete sphere through vibration stimuli</p>
+          </div>
+        </div>
+  
+        <!-- Example 2 with YouTube Video -->
+        <div class="example-box" data-aos="fade-up" data-aos-delay="200">
+          <div class="example-video-wrapper">
+            <div class="example-video">
+              <iframe 
+                width="100%" 
+                height="100%" 
+                src="https://www.youtube.com/embed/eaKgAenfaCA" 
+                title="UGA Shape Formation"
+                frameborder="0" 
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                allowfullscreen>
+              </iframe>
+            </div>
+          </div>
+          <div class="example-content">
+            <div class="example-header">
+              <div class="example-number">02</div>
+              <h4 class="example-title">UGA Shape Formation</h4>
+            </div>
+            <p>Rectangle and semi-circle agents form the UGA shape through calibrated vibration</p>
+          </div>
+        </div>
+  
+        <!-- Example 3 with YouTube Video -->
+        <div class="example-box" data-aos="fade-up" data-aos-delay="300">
+          <div class="example-video-wrapper">
+            <div class="example-video">
+              <iframe 
+                width="100%" 
+                height="100%" 
+                src="https://www.youtube.com/embed/CMjb4ws9QZU" 
+                title="Complex Structure"
+                frameborder="0" 
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                allowfullscreen>
+              </iframe>
+            </div>
+          </div>
+          <div class="example-content">
+            <div class="example-header">
+              <div class="example-number">03</div>
+              <h4 class="example-title">Complex Structure</h4>
+            </div>
+            <p>Multiple agent types creating intricate formations through vibration parameters</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Sample Parameters Example - MOVED UP as requested -->
+    <div class="content-section" data-aos="fade-up" data-aos-delay="400">
+      <div class="simulator-sample">
+        <img src="{{ url_for('static', filename='assets/4d-printing-game-simulator.png') }}" alt="4D Printing & Game Simulator">
+        <div class="image-caption">
+          Visualization of different building blocks and their resulting patterns through iterations in the simulator
+        </div>
+      </div>
+    </div>
+
+    <!-- How to Use Section -->
+    <div class="content-section" data-aos="fade-up" data-aos-delay="300">
+      <div class="section-header">
+        <div class="section-icon">
+          <i class="fas fa-user-cog"></i>
+        </div>
+        <h3 class="section-title">How to Use the 4D Printing Simulator</h3>
+      </div>
+      <div class="section-line"></div>
+      
+      <div class="usage-box">
+        <ol class="usage-list">
+          <li><span class="step-text">Set your desired parameter values (spring constant, bond break force, etc.)</span></li>
+          <li><span class="step-text">Configure the amplitude and frequency for each axis (X, Y, Z)</span></li>
+          <li><span class="step-text">Select the shapes you want to include in the simulation</span></li>
+          <li><span class="step-text">Click "Start Simulation" to observe the resulting behavior</span></li>
+          <li><span class="step-text">Analyze how different parameters affect the patterns that emerge</span></li>
+          <li><span class="step-text">Try modifying one parameter at a time to understand its specific impact</span></li>
+        </ol>
+      </div>
+    </div>
+
+    <!-- Parameters Section -->
+    <div class="content-section" data-aos="fade-up" data-aos-delay="500">
+      <div class="section-header">
+        <div class="section-icon">
+          <i class="fas fa-sliders-h"></i>
+        </div>
+        <h3 class="section-title">Simulator Parameters</h3>
+      </div>
+      <div class="section-line"></div>
+      
+      <p>
+        The simulator allows you to adjust multiple parameters that influence how particles behave under vibration:
+      </p>
+
+      <div class="section-grid">
+        <div class="parameter-box primary">
+          <div class="parameter-icon">
+            <i class="fas fa-cogs"></i>
+          </div>
+          <h4 class="parameter-title">Core Parameters</h4>
+          <ul class="parameter-list">
+            <li><span class="bold">Spring Constant:</span> Controls the stiffness of connections between particles</li>
+            <li><span class="bold">Bond Break Force:</span> Threshold at which connections between particles break</li>
+            <li><span class="bold">Amplitude:</span> Maximum displacement of vibration in X, Y, and Z axes</li>
+            <li><span class="bold">Frequency:</span> Rate of oscillation in X, Y, and Z axes</li>
+          </ul>
+        </div>
+        
+        <div class="parameter-box secondary">
+          <div class="parameter-icon">
+            <i class="fas fa-shapes"></i>
+          </div>
+          <h4 class="parameter-title">Shape Configuration</h4>
+          <p>Choose different geometric shapes for your simulation:</p>
+          <ul class="parameter-list">
+            <li><span class="bold">Spheres:</span> Create symmetrical patterns</li>
+            <li><span class="bold">Rectangles:</span> Show asymmetric force distribution</li>
+            <li><span class="bold">Quarter Spheres:</span> Demonstrate partial geometry behaviors</li>
+          </ul>
+          <p class="coming-soon">Coming Soon: Airfoils, Half Spheres, and Pyramids</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- CTA Section -->
+    <div class="cta-section" data-aos="fade-up">
+      <div class="cta-container">
+        <h3 class="cta-title">Ready to Run a Simulation?</h3>
+        <p class="cta-description">Configure your simulation parameters and run the vibration platform simulator.</p>
+        <div class="navigation-buttons">
+          <a href="{{ url_for('index') }}" class="back-button">
+            <i class="fas fa-arrow-left"></i>
+            <span>Back to Self-Organization</span>
+          </a>
+          <a href="{{ url_for('simulator_form') }}" class="simulator-button">
+            <span>Go to Simulator Form</span>
+            <i class="fas fa-arrow-right"></i>
+          </a>
+        </div>
+      </div>
+    </div>
+    
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/aos/2.3.4/aos.js"></script>
+<script>
+  // Initialize AOS
+  document.addEventListener('DOMContentLoaded', function() {
+    AOS.init({
+      duration: 800,
+      easing: 'ease-in-out',
+      once: false,
+      mirror: false
+    });
+    
+    // Fix for back button
+    document.querySelector('.back-button').addEventListener('click', function(e) {
+      e.preventDefault();
+      window.location.href = this.getAttribute('href');
+    });
+  });
+</script>
+{% endblock %}
