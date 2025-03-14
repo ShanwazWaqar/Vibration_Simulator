@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+    <title>4D Platform Simulator | VibrationPlatformSimulator</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #BA0C2F;
+            --primary-dark: #98041F;
+            --primary-light: #F8E9EC;
+            --accent: #F5BD1F;
+            --dark: #1E293B;
+            --light-gray: #F8FAFC;
+            --border-radius: 12px;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            position: fixed;
+            background: #1E293B;
+            touch-action: none;
+        }
+
+        #unity-container {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            background: #1E293B;
+        }
+
+        #unity-canvas-container {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        #unity-canvas {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: #1E293B;
+            object-fit: contain;
+        }
+
+        #unity-loading-bar {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            display: none;
+            z-index: 100;
+        }
+
+        #unity-logo {
+            width: 154px;
+            height: 130px;
+            background: url('/game/TemplateData/unity-logo-dark.png') no-repeat center;
+            background-size: contain;
+        }
+
+        #unity-progress-bar-empty {
+            width: 141px;
+            height: 18px;
+            margin: 10px 0;
+            background: url('/game/TemplateData/progress-bar-empty-dark.png') no-repeat center;
+            background-size: contain;
+        }
+
+        #unity-progress-bar-full {
+            width: 0%;
+            height: 18px;
+            margin: 10px 0;
+            background: url('/game/TemplateData/progress-bar-full-dark.png') no-repeat center;
+            background-size: contain;
+        }
+
+        #unity-warning {
+            position: absolute;
+            left: 50%;
+            top: 5%;
+            transform: translateX(-50%);
+            background: rgba(200, 0, 0, 0.8);
+            padding: 10px;
+            display: none;
+            border-radius: 8px;
+            color: white;
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            max-width: 90%;
+            text-align: center;
+            z-index: 999;
+        }
+    </style>
+  </head>
+  <body>
+    <div id="unity-container" class="unity-desktop">
+      <div id="unity-canvas-container">
+        <canvas id="unity-canvas" tabindex="-1"></canvas>
+      </div>
+      <div id="unity-loading-bar">
+        <div id="unity-logo"></div>
+        <div id="unity-progress-bar-empty">
+          <div id="unity-progress-bar-full"></div>
+        </div>
+      </div>
+      <div id="unity-warning"></div>
+    </div>
+    <script>
+      var container = document.querySelector("#unity-container");
+      var canvas = document.querySelector("#unity-canvas");
+      var loadingBar = document.querySelector("#unity-loading-bar");
+      var progressBarFull = document.querySelector("#unity-progress-bar-full");
+      var warning = document.querySelector("#unity-warning");
+      var gameInstance = null; // Will store Unity game instance
+      var isIframe = window !== window.parent;
+        
+      function unityShowBanner(msg, type) {
+        function updateBannerVisibility() {
+          warning.style.display = warning.children.length ? 'block' : 'none';
+        }
+        var div = document.createElement('div');
+        div.innerHTML = msg;
+        warning.appendChild(div);
+        if (type == 'error') div.style = 'background: rgba(200, 0, 0, 0.8); padding: 10px;';
+        else {
+          if (type == 'warning') div.style = 'background: rgba(200, 200, 0, 0.8); padding: 10px;';
+          setTimeout(function() {
+            warning.removeChild(div);
+            updateBannerVisibility();
+          }, 5000);
+        }
+        updateBannerVisibility();
+      }
+
+      function updateCanvasSize() {
+        var windowWidth = window.innerWidth;
+        var windowHeight = window.innerHeight;
+        var targetAspectRatio = 16 / 9;
+        var currentAspectRatio = windowWidth / windowHeight;
+        var canvasWidth, canvasHeight;
+
+        if (currentAspectRatio > targetAspectRatio) {
+            canvasHeight = windowHeight;
+            canvasWidth = windowHeight * targetAspectRatio;
+        } else {
+            canvasWidth = windowWidth;
+            canvasHeight = windowWidth / targetAspectRatio;
+        }
+
+        canvas.style.width = canvasWidth + 'px';
+        canvas.style.height = canvasHeight + 'px';
+        canvas.style.top = ((windowHeight - canvasHeight) / 2) + 'px';
+        canvas.style.left = ((windowWidth - canvasWidth) / 2) + 'px';
+      }
+
+      var buildUrl = "/game/Build";
+      var loaderUrl = buildUrl + "/Try_web_build.loader.js";
+      var config = {
+        dataUrl: buildUrl + "/Try_web_build.data",
+        frameworkUrl: buildUrl + "/Try_web_build.framework.js",
+        codeUrl: buildUrl + "/Try_web_build.wasm",
+        streamingAssetsUrl: "/game/StreamingAssets",
+        companyName: "DefaultCompany",
+        productName: "VibrationPlatformSimulator",
+        productVersion: "0.1",
+        showBanner: unityShowBanner,
+      };
+
+      // Device detection and optimization
+      if (/iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+        // Mobile device optimizations
+        container.className = "unity-mobile";
+        
+        // Optimize for mobile performance
+        config.devicePixelRatio = Math.min(window.devicePixelRatio, 2);
+        
+        // Prevent unwanted touch behaviors
+        document.addEventListener('touchmove', function(e) {
+            e.preventDefault();
+        }, { passive: false });
+      }
+
+      loadingBar.style.display = "block";
+
+      var script = document.createElement("script");
+      script.src = loaderUrl;
+      script.onload = () => {
+        createUnityInstance(canvas, config, (progress) => {
+          progressBarFull.style.width = 100 * progress + "%";
+        }).then((unityInstance) => {
+          gameInstance = unityInstance; // Store reference for later use
+          loadingBar.style.display = "none";
+          
+          // Notify parent that Unity is ready
+          if (isIframe && window.parent) {
+            window.parent.postMessage({ 
+              type: 'unityReady',
+              message: 'Unity WebGL application is ready'
+            }, '*');
+          }
+          
+          // Fetch simulation parameters to initialize Unity
+          fetchSimulationParameters();
+          
+        }).catch((message) => {
+          console.error("Error loading Unity application:", message);
+          if (isIframe && window.parent) {
+            window.parent.postMessage({ 
+              type: 'unityError',
+              message: message
+            }, '*');
+          }
+        });
+      };
+
+      document.body.appendChild(script);
+      
+      // Function to fetch simulation parameters from server
+      function fetchSimulationParameters() {
+        fetch('/get-data')
+          .then(response => response.json())
+          .then(data => {
+            console.log("Received simulation parameters:", data);
+            if (gameInstance) {
+              try {
+                // Send parameters to Unity's GameManager
+                gameInstance.SendMessage('GameManager', 'SetSimulationParameters', JSON.stringify(data));
+                
+                // Auto-start the simulation after parameters are set
+                setTimeout(() => {
+                  gameInstance.SendMessage('GameManager', 'StartSimulation');
+                  
+                  // Notify parent that simulation has started
+                  if (isIframe && window.parent) {
+                    window.parent.postMessage({ 
+                      type: 'simulationStatus',
+                      status: 'running'
+                    }, '*');
+                  }
+                }, 500);
+              } catch (error) {
+                console.error("Error sending parameters to Unity:", error);
+                
+                if (isIframe && window.parent) {
+                  window.parent.postMessage({ 
+                    type: 'simulationError',
+                    message: error.toString()
+                  }, '*');
+                }
+              }
+            }
+          })
+          .catch(error => {
+            console.error("Error fetching simulation parameters:", error);
+            
+            if (isIframe && window.parent) {
+              window.parent.postMessage({ 
+                type: 'simulationError',
+                message: 'Failed to fetch simulation parameters: ' + error.toString()
+              }, '*');
+            }
+          });
+      }
+      
+      // Listen for messages from parent iframe
+      window.addEventListener('message', function(event) {
+        // Only process messages if from parent
+        if (event.source === window.parent) {
+            const data = event.data;
+            
+            // Process simulation control commands
+            if (data.type === 'simulationControl' && gameInstance) {
+                console.log("Received control command:", data.command);
+                
+                try {
+                    switch(data.command) {
+                        case 'start':
+                            gameInstance.SendMessage('GameManager', 'StartSimulation');
+                            notifyParent('running');
+                            break;
+                        case 'pause':
+                            gameInstance.SendMessage('GameManager', 'PauseSimulation');
+                            notifyParent('paused');
+                            break;
+                        case 'resume':
+                            gameInstance.SendMessage('GameManager', 'ResumeSimulation');
+                            notifyParent('running');
+                            break;
+                        case 'stop':
+                            gameInstance.SendMessage('GameManager', 'StopSimulation');
+                            notifyParent('stopped');
+                            break;
+                        case 'reset':
+                            gameInstance.SendMessage('GameManager', 'ResetSimulation');
+                            notifyParent('ready');
+                            break;
+                    }
+                } catch (error) {
+                    console.error("Error sending command to Unity:", error);
+                    
+                    if (isIframe && window.parent) {
+                      window.parent.postMessage({ 
+                        type: 'simulationError',
+                        message: 'Error executing command: ' + error.toString()
+                      }, '*');
+                    }
+                }
+            }
+        }
+      });
+      
+      // Helper function to notify parent of status changes
+      function notifyParent(status) {
+        if (isIframe && window.parent) {
+          window.parent.postMessage({ 
+            type: 'simulationStatus',
+            status: status
+          }, '*');
+        }
+      }
+
+      // Handle resize and orientation changes
+      window.addEventListener('resize', updateCanvasSize);
+      window.addEventListener('orientationchange', function() {
+        setTimeout(updateCanvasSize, 100);
+      });
+
+      // Initial size setup
+      updateCanvasSize();
+
+      // Handle visibility changes
+      document.addEventListener('visibilitychange', function() {
+        if (document.hidden) {
+            // Pause game or reduce performance
+            if (gameInstance) {
+                try {
+                    gameInstance.SendMessage('GameManager', 'OnApplicationPause', true);
+                } catch (e) { 
+                    console.log("Could not pause Unity game:", e);
+                }
+            }
+        } else {
+            // Resume game
+            updateCanvasSize();
+            if (gameInstance) {
+                try {
+                    gameInstance.SendMessage('GameManager', 'OnApplicationPause', false);
+                } catch (e) {
+                    console.log("Could not resume Unity game:", e);
+                }
+            }
+        }
+      });
+
+      // Prevent pinch zoom on mobile
+      document.addEventListener('gesturestart', function(e) {
+        e.preventDefault();
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,1703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
+    <title>4D Platform Simulator</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary': '#BA0C2F',
+                        'primary-dark': '#98041F',
+                        'primary-light': '#F8E9EC',
+                        'accent': '#F5BD1F',
+                        'dark': '#1E293B',
+                        'light-gray': '#F8FAFC'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Root variables and reset */
+        :root {
+            --primary: #BA0C2F;
+            --primary-dark: #98041F;
+            --primary-light: #F8E9EC;
+            --accent: #F5BD1F;
+            --dark: #1E293B;
+            --light-gray: #F8FAFC;
+            --border-radius: 12px;
+            --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+        
+        body {
+            background-color: #F0F2F5;
+            color: #333;
+            line-height: 1.5;
+            overflow-x: hidden;
+        }
+        
+        /* Main container and layout */
+        .main-container {
+            width: 90%;
+            max-width: 1260px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            margin-bottom: 24px;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: #1E293B;
+            margin-bottom: 8px;
+        }
+        
+        .header p {
+            color: #64748B;
+            font-size: 15px;
+        }
+        
+        /* Content grid - main layout structure */
+        #content-grid {
+            display: flex;
+            gap: 16px;
+        }
+        
+        .lg\:col-span-5 {
+            flex: 0 0 calc(42% - 8px);
+            width: calc(42% - 8px);
+        }
+        
+        .lg\:col-span-7 {
+            flex: 0 0 calc(58% - 8px);
+            width: calc(58% - 8px);
+        }
+        
+        /* Parameter Panel Styles */
+        .parameters-panel {
+            background-color: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--card-shadow);
+            overflow: hidden;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .panel-header {
+            padding: 16px 20px;
+            border-bottom: 1px solid #E2E8F0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .panel-header h2 {
+            font-size: 17px;
+            font-weight: 600;
+            color: #1E293B;
+        }
+        
+        .panel-content {
+            padding: 16px;
+            overflow-y: auto;
+            flex: 1;
+            scrollbar-width: thin;
+            scrollbar-color: #CBD5E1 #F1F5F9;
+        }
+        
+        .panel-content::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .panel-content::-webkit-scrollbar-track {
+            background: #F1F5F9;
+            border-radius: 8px;
+        }
+        
+        .panel-content::-webkit-scrollbar-thumb {
+            background-color: #CBD5E1;
+            border-radius: 8px;
+        }
+        
+        .panel-content::-webkit-scrollbar-thumb:hover {
+            background-color: #BA0C2F;
+        }
+        
+        /* Form sections */
+        .parameter-section {
+            background-color: var(--light-gray);
+            border-radius: var(--border-radius);
+            padding: 16px;
+            margin-bottom: 16px;
+            transition: all 0.3s ease;
+            border: 1px solid transparent;
+        }
+        
+        .parameter-section:hover {
+            border-color: rgba(186, 12, 47, 0.1);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+        
+        .section-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        
+        .section-header .icon {
+            width: 16px;
+            height: 16px;
+            background-color: var(--primary);
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .section-header h3 {
+            font-size: 15px;
+            font-weight: 600;
+            color: #1E293B;
+        }
+        
+        .parameters-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+        }
+        
+        .parameter-row {
+            display: grid;
+            grid-template-columns: 90px 1fr auto;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        
+        .parameter-label {
+            font-size: 14px;
+            font-weight: 500;
+            color: #4A5568;
+        }
+        
+        .parameter-value {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--primary);
+            background-color: white;
+            padding: 4px 8px;
+            border-radius: 6px;
+            border: 1px solid #E2E8F0;
+            width: 55px;
+            text-align: center;
+            transition: all 0.2s ease;
+        }
+        
+        .parameter-value:hover {
+            border-color: var(--primary);
+        }
+        
+        /* Custom slider styling */
+        .slider-container {
+            position: relative;
+            width: 100%;
+        }
+        
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 6px;
+            background: #E2E8F0;
+            outline: none;
+            transition: all 0.2s;
+        }
+        
+        input[type="range"]:hover {
+            background: #CBD5E0;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: var(--primary);
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 2px solid white;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        input[type="range"]::-webkit-slider-thumb:hover {
+            background: var(--primary-dark);
+            box-shadow: 0 0 0 6px rgba(186, 12, 47, 0.2);
+            transform: scale(1.1);
+        }
+        
+        /* Shape selection */
+        .shapes-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+        
+        .shape-card {
+            background-color: white;
+            border-radius: 10px;
+            padding: 16px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid transparent;
+        }
+        
+        .shape-card:hover {
+            border-color: rgba(186, 12, 47, 0.3);
+            transform: translateY(-2px);
+        }
+        
+        .shape-card.active {
+            border-color: var(--primary);
+            background-color: rgba(186, 12, 47, 0.05);
+        }
+        
+        .shape-icon {
+            margin: 0 auto;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 8px;
+        }
+        
+        .sphere-icon {
+            width: 25px;
+            height: 25px;
+            background-color: var(--primary);
+            border-radius: 50%;
+        }
+        
+        .rectangle-icon {
+            display: flex;
+        }
+        
+        .rect1, .rect2 {
+            width: 7px;
+            height: 25px;
+            margin: 0 2px;
+        }
+        
+        .rect1 {
+            background-color: var(--primary);
+        }
+        
+        .rect2 {
+            background-color: var(--accent);
+        }
+        
+        .quarter-sphere-icon {
+            width: 25px;
+            height: 25px;
+            background-color: var(--primary);
+            border-radius: 25px 0 0 0;
+        }
+        
+        .shape-name {
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .shape-count {
+            width: 100%;
+            text-align: center;
+            border: 1px solid #E2E8F0;
+            border-radius: 6px;
+            padding: 6px;
+            font-size: 13px;
+            transition: all 0.2s ease;
+        }
+        
+        .shape-count:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(186, 12, 47, 0.1);
+        }
+        
+        .coming-soon {
+            margin-top: 8px;
+        }
+        
+        .coming-soon-label {
+            font-size: 11px;
+            color: #718096;
+            margin-bottom: 8px;
+        }
+        
+        .chip {
+            display: inline-block;
+            background-color: #EDF2F7;
+            color: #718096;
+            font-size: 11px;
+            padding: 4px 8px;
+            border-radius: 9999px;
+            margin-right: 4px;
+            margin-bottom: 4px;
+        }
+        
+        /* Start button */
+        .start-button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            padding: 14px 20px;
+            font-size: 15px;
+            font-weight: 600;
+            width: 100%;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 4px 6px rgba(186, 12, 47, 0.2);
+        }
+        
+        .start-button:hover {
+            background-color: var(--primary-dark);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(186, 12, 47, 0.3);
+        }
+        
+        .start-button:active {
+            transform: translateY(1px);
+            box-shadow: 0 2px 4px rgba(186, 12, 47, 0.2);
+        }
+        
+        /* Custom number input */
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+        
+        input[type="number"]::-webkit-outer-spin-button,
+        input[type="number"]::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        
+        /* Simulation container and iframe */
+        .simulation-container {
+            position: relative;
+            height: 100%;
+            background: #F9FAFB;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        
+        .bg-black.rounded-xl,
+        .bg-white.rounded-xl {
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .flex-grow.relative {
+            position: relative;
+            flex-grow: 1;
+            min-height: 450px;
+            background-color: black;
+            border-radius: 12px 12px 0 0;
+        }
+        
+        #unity-iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background-color: #000000;
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            margin: 0;
+            padding: 0;
+        }
+        
+        /* Simulation placeholder styling */
+        #simulation-placeholder {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 400px;
+            padding: 2rem;
+            background-color: white;
+            border-radius: 12px 12px 0 0;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            text-align: center;
+        }
+        
+        /* How It Works section styling */
+        .how-it-works {
+            margin-top: 1.5rem;
+            width: 100%;
+            max-width: 400px;
+            text-align: left;
+            border-left: 4px solid var(--primary);
+            padding: 1rem;
+            background-color: var(--light-gray);
+            border-radius: 0.5rem;
+        }
+        
+        /* Configuration display */
+        .config-display {
+            background-color: white;
+            border-top: 1px solid #E2E8F0;
+            padding: 16px;
+            border-radius: 0 0 12px 12px;
+        }
+        
+        .config-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        
+        .config-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1E293B;
+        }
+        
+        .status {
+            display: flex;
+            align-items: center;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 6px;
+        }
+        
+        .status-running {
+            background-color: #10B981;
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.2);
+        }
+        
+        .config-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        
+        .config-item {
+            background-color: #F8FAFC;
+            padding: 10px;
+            border-radius: 8px;
+        }
+        
+        .config-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #64748B;
+            margin-bottom: 4px;
+        }
+        
+        .config-value {
+            font-weight: 600;
+            font-size: 13px;
+            color: #1E293B;
+            word-break: break-word;
+        }
+        
+        /* Animation keyframes */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.03); }
+            100% { transform: scale(1); }
+        }
+        
+        @keyframes glow {
+            0% { box-shadow: 0 0 0 rgba(186, 12, 47, 0); }
+            50% { box-shadow: 0 0 15px rgba(186, 12, 47, 0.3); }
+            100% { box-shadow: 0 0 0 rgba(186, 12, 47, 0); }
+        }
+        
+        @keyframes highlightValue {
+            0% { background-color: rgba(186, 12, 47, 0); }
+            50% { background-color: rgba(186, 12, 47, 0.1); }
+            100% { background-color: rgba(186, 12, 47, 0); }
+        }
+        
+        /* Animation classes */
+        .fade-in {
+            animation: fadeIn 0.5s ease-out forwards;
+        }
+        
+        .slide-up {
+            animation: slideUp 0.6s ease-out forwards;
+        }
+        
+        .pulse-animation {
+            animation: pulse 2s infinite;
+        }
+        
+        .glow-animation {
+            animation: glow 2s infinite;
+        }
+        
+        .highlight-value {
+            animation: highlightValue 0.6s ease-out;
+        }
+        
+        .value-highlight {
+            transition: all 0.3s ease;
+        }
+        
+        .value-highlight.active {
+            background-color: rgba(186, 12, 47, 0.1);
+            transform: scale(1.05);
+        }
+        
+        /* Icon styling */
+        .text-primary {
+            color: var(--primary);
+        }
+        
+        /* Responsive breakpoints */
+        
+        /* Large desktop (1280px and above) */
+        @media (min-width: 1280px) {
+            .main-container {
+                padding: 24px;
+                max-width: 1400px;
+            }
+            
+            .lg\:col-span-5 {
+                flex: 0 0 calc(42% - 8px);
+                width: calc(42% - 8px);
+            }
+            
+            .lg\:col-span-7 {
+                flex: 0 0 calc(58% - 8px);
+                width: calc(58% - 8px);
+            }
+            
+            .flex-grow.relative {
+                min-height: 500px;
+            }
+        }
+        
+        /* Standard desktop (1024px to 1279px) */
+        @media (min-width: 1024px) and (max-width: 1279px) {
+            .main-container {
+                padding: 20px;
+            }
+            
+            .lg\:col-span-5 {
+                flex: 0 0 calc(40% - 8px);
+                width: calc(40% - 8px);
+            }
+            
+            .lg\:col-span-7 {
+                flex: 0 0 calc(60% - 8px);
+                width: calc(60% - 8px);
+            }
+            
+            .config-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        
+        /* Tablet (768px to 1023px) */
+        @media (min-width: 768px) and (max-width: 1023px) {
+            .main-container {
+                padding: 16px;
+            }
+            
+            #content-grid {
+                flex-direction: column;
+            }
+            
+            .lg\:col-span-5, 
+            .lg\:col-span-7 {
+                flex: 0 0 100%;
+                width: 100%;
+                margin-bottom: 16px;
+            }
+            
+            .parameters-panel {
+                margin-bottom: 16px;
+                height: auto;
+            }
+            
+            .config-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .flex-grow.relative {
+                min-height: 400px;
+            }
+            
+            #simulation-placeholder {
+                min-height: 350px;
+            }
+            
+            .parameter-row {
+                grid-template-columns: 80px 1fr auto;
+            }
+        }
+        
+        /* Mobile (767px and below) */
+        @media (max-width: 767px) {
+            .main-container {
+                padding: 12px;
+                width: 95%;
+            }
+            
+            .header h1 {
+                font-size: 24px;
+            }
+            
+            .header p {
+                font-size: 14px;
+            }
+            
+            #content-grid {
+                flex-direction: column;
+                gap: 12px;
+            }
+            
+            .lg\:col-span-5, 
+            .lg\:col-span-7 {
+                flex: 0 0 100%;
+                width: 100%;
+                margin-bottom: 12px;
+            }
+            
+            .parameters-panel {
+                margin-bottom: 12px;
+                height: auto;
+            }
+            
+            .panel-content {
+                padding: 12px;
+            }
+            
+            .parameter-section {
+                padding: 12px;
+                margin-bottom: 12px;
+            }
+            
+            .parameter-row {
+                grid-template-columns: 70px 1fr auto;
+                gap: 6px;
+            }
+            
+            .parameter-label {
+                font-size: 12px;
+            }
+            
+            .parameter-value {
+                width: 50px;
+                font-size: 13px;
+            }
+            
+            .shapes-grid {
+                grid-template-columns: repeat(3, 1fr);
+                gap: 10px;
+            }
+            
+            .shape-card {
+                padding: 10px;
+            }
+            
+            .shape-name {
+                font-size: 12px;
+            }
+            
+            .config-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 8px;
+            }
+            
+            .flex-grow.relative {
+                min-height: 300px;
+            }
+            
+            #simulation-placeholder {
+                min-height: 300px;
+                padding: 1rem;
+            }
+            
+            .how-it-works {
+                padding: 0.75rem;
+                margin-top: 1rem;
+            }
+        }
+        
+        /* Small mobile screens */
+        @media (max-width: 480px) {
+            .main-container {
+                padding: 10px;
+                width: 100%;
+            }
+            
+            .header {
+                margin-bottom: 16px;
+            }
+            
+            .header h1 {
+                font-size: 22px;
+            }
+            
+            .panel-header h2 {
+                font-size: 16px;
+            }
+            
+            .section-header h3 {
+                font-size: 14px;
+            }
+            
+            .parameter-row {
+                grid-template-columns: 60px 1fr auto;
+            }
+            
+            .shapes-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            
+            .config-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .flex-grow.relative {
+                min-height: 250px;
+            }
+            
+            #simulation-placeholder {
+                min-height: 250px;
+                padding: 0.75rem;
+            }
+            
+            .config-display {
+                padding: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Header -->
+        <header class="header fade-in">
+            <h1>4D Platform Simulator</h1>
+            <p>Experience self-organization principles in action</p>
+        </header>
+
+        <!-- Content Grid -->
+        <div id="content-grid">
+            <!-- Control Panel (Left Side) -->
+            <div class="lg:col-span-5 fade-in">
+                <div class="parameters-panel">
+                    <div class="panel-header">
+                        <h2>Simulation Parameters</h2>
+                    </div>
+                    
+                    <div class="panel-content">
+                        <form id="paramForm" class="space-y-4">
+                            <!-- Core Parameters Section -->
+                            <div class="parameter-section">
+                                <div class="section-header">
+                                    <div class="icon"></div>
+                                    <h3>Core Parameters</h3>
+                                </div>
+                                
+                                <div class="parameters-grid">
+                                    <div>
+                                        <div class="parameter-row">
+                                            <div class="parameter-label">Spring Constant</div>
+                                            <div class="slider-container">
+                                                <input type="range" id="SC-slider" min="0" max="2000" value="800">
+                                            </div>
+                                            <input type="number" id="SC" class="parameter-value value-highlight" value="800">
+                                        </div>
+                                    </div>
+                                    
+                                    <div>
+                                        <div class="parameter-row">
+                                            <div class="parameter-label">Bond Break Force</div>
+                                            <div class="slider-container">
+                                                <input type="range" id="BF-slider" min="0" max="1000" value="300">
+                                            </div>
+                                            <input type="number" id="BF" class="parameter-value value-highlight" value="300">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Amplitude & Frequency Sections -->
+                            <div class="parameters-grid">
+                                <!-- Amplitude Section -->
+                                <div class="parameter-section">
+                                    <div class="section-header">
+                                        <div class="icon"></div>
+                                        <h3>Amplitude</h3>
+                                    </div>
+                                    
+                                    <div class="parameter-row">
+                                        <div class="parameter-label">X Axis</div>
+                                        <div class="slider-container">
+                                            <input type="range" id="AmpX-slider" min="0" max="5" step="0.1" value="0.2">
+                                        </div>
+                                        <input type="number" id="AmpX" class="parameter-value value-highlight" value="0.2" step="0.1">
+                                    </div>
+                                    
+                                    <div class="parameter-row">
+                                        <div class="parameter-label">Y Axis</div>
+                                        <div class="slider-container">
+                                            <input type="range" id="AmpY-slider" min="0" max="5" step="0.1" value="1">
+                                        </div>
+                                        <input type="number" id="AmpY" class="parameter-value value-highlight" value="1.0" step="0.1">
+                                    </div>
+                                    
+                                    <div class="parameter-row">
+                                        <div class="parameter-label">Z Axis</div>
+                                        <div class="slider-container">
+                                            <input type="range" id="AmpZ-slider" min="0" max="5" step="0.1" value="0.2">
+                                        </div>
+                                        <input type="number" id="AmpZ" class="parameter-value value-highlight" value="0.2" step="0.1">
+                                    </div>
+                                </div>
+                                
+                                <!-- Frequency Section -->
+                                <div class="parameter-section">
+                                    <div class="section-header">
+                                        <div class="icon"></div>
+                                        <h3>Frequency</h3>
+                                    </div>
+                                    
+                                    <div class="parameter-row">
+                                        <div class="parameter-label">X Axis</div>
+                                        <div class="slider-container">
+                                            <input type="range" id="freqX-slider" min="0" max="10" step="0.1" value="1">
+                                        </div>
+                                        <input type="number" id="freqX" class="parameter-value value-highlight" value="1.0" step="0.1">
+                                    </div>
+                                    
+                                    <div class="parameter-row">
+                                        <div class="parameter-label">Y Axis</div>
+                                        <div class="slider-container">
+                                            <input type="range" id="freqY-slider" min="0" max="10" step="0.1" value="2">
+                                        </div>
+                                        <input type="number" id="freqY" class="parameter-value value-highlight" value="2.0" step="0.1">
+                                    </div>
+                                    
+                                    <div class="parameter-row">
+                                        <div class="parameter-label">Z Axis</div>
+                                        <div class="slider-container">
+                                            <input type="range" id="freqZ-slider" min="0" max="10" step="0.1" value="1">
+                                        </div>
+                                        <input type="number" id="freqZ" class="parameter-value value-highlight" value="1.0" step="0.1">
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Shape Configuration Section -->
+                            <div class="parameter-section">
+                                <div class="section-header">
+                                    <div class="icon"></div>
+                                    <h3>Shape Configuration</h3>
+                                </div>
+                                
+                                <div class="shapes-grid">
+                                    <div class="shape-card active" id="shape-sphere-card">
+                                        <input type="radio" id="shape-sphere" name="shape" value="sphere" class="hidden" checked>
+                                        <div class="shape-icon">
+                                            <div class="sphere-icon"></div>
+                                        </div>
+                                        <div class="shape-name">Spheres</div>
+                                        <input type="number" id="sphereCount" class="shape-count" value="0" min="0" max="10">
+                                    </div>
+                                    
+                                    <div class="shape-card" id="shape-rectangle-card">
+                                        <input type="radio" id="shape-rectangle" name="shape" value="rectangle" class="hidden">
+                                        <div class="shape-icon">
+                                            <div class="rectangle-icon">
+                                                <div class="rect1"></div>
+                                                <div class="rect2"></div>
+                                            </div>
+                                        </div>
+                                        <div class="shape-name">Rectangles</div>
+                                        <input type="number" id="rectangleCount" class="shape-count" value="0" min="0" max="10">
+                                    </div>
+                                    
+                                    <div class="shape-card" id="shape-quartersphere-card">
+                                        <input type="radio" id="shape-quartersphere" name="shape" value="quartersphere" class="hidden">
+                                        <div class="shape-icon">
+                                            <div class="quarter-sphere-icon"></div>
+                                        </div>
+                                        <div class="shape-name">Quarter Spheres</div>
+                                        <input type="number" id="quartersphereCount" class="shape-count" value="0" min="0" max="10">
+                                    </div>
+                                </div>
+                                
+                                <div class="coming-soon">
+                                    <div class="coming-soon-label">Coming Soon:</div>
+                                    <div class="chips">
+                                        <span class="chip">Airfoils</span>
+                                        <span class="chip">Half Spheres</span>
+                                        <span class="chip">Pyramids</span>
+                                    </div>
+                                </div>
+                                
+                                <input type="hidden" id="airfoilCount" name="airfoilCount" value="0">
+                                <input type="hidden" id="halfsphereCount" name="halfsphereCount" value="0">
+                                <input type="hidden" id="pyramidCount" name="pyramidCount" value="0">
+                            </div>
+                            
+                            <!-- Start Button -->
+                            <button type="button" id="startButton" class="start-button">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M5 3l14 9-14 9V3z"></path>
+                                </svg>
+                                Start Simulation
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Simulation Panel (Right Side) -->
+            <div class="lg:col-span-7 fade-in">
+                <div class="bg-white rounded-xl shadow-sm h-full flex flex-col">
+                    <!-- Simulation Container -->
+                    <div class="flex-grow relative">
+                        <!-- Placeholder (shown initially) -->
+                        <div id="simulation-placeholder">
+                            <!-- Simulator icon -->
+                            <svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" viewBox="0 0 24 24" fill="none" stroke="#BA0C2F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mb-5">
+                                <circle cx="12" cy="12" r="10"/>
+                                <path d="M12 6v6l4 2"/>
+                                <path d="M12 2v4"/>
+                                <path d="M12 18v4"/>
+                                <path d="M6 12H2"/>
+                                <path d="M22 12h-4"/>
+                            </svg>
+                            
+                            <h3 class="text-xl font-semibold text-gray-800 mb-2">Simulation Viewer</h3>
+                            <p class="text-gray-600 mt-1 mb-6">Configure parameters and click "Start Simulation" to begin</p>
+                            
+                            <div class="how-it-works">
+                                <h4 class="font-medium text-gray-800 mb-2 flex items-center">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2 text-primary">
+                                        <circle cx="12" cy="12" r="10"></circle>
+                                        <line x1="12" y1="16" x2="12" y2="12"></line>
+                                        <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                                    </svg>
+                                    How It Works
+                                </h4>
+                                <p class="text-gray-600 text-sm mb-2">This simulator demonstrates self-organization principles through vibration-induced pattern formation.</p>
+                                <p class="text-gray-600 text-sm">Set your parameters on the left panel, then click "Start Simulation" to observe how different shapes organize themselves under vibration.</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Unity iframe (hidden initially) -->
+                        <iframe id="unity-iframe" src="about:blank" class="rounded-t-xl"></iframe>
+                    </div>
+                    
+                    <!-- Configuration Display -->
+                    <div class="config-display">
+                        <div class="config-header">
+                            <div class="config-title">Current Configuration</div>
+                            <div class="status">
+                                <span class="status-indicator"></span>
+                                <span class="text-xs text-gray-600 font-medium"></span>
+                            </div>
+                        </div>
+                        
+                        <div class="config-grid">
+                            <div class="config-item">
+                                <div class="config-label">Spring Constant</div>
+                                <div class="config-value" id="sc-display">800</div>
+                            </div>
+                            
+                            <div class="config-item">
+                                <div class="config-label">Bond Force</div>
+                                <div class="config-value" id="bf-display">300</div>
+                            </div>
+                            
+                            <div class="config-item">
+                                <div class="config-label">Active Shape</div>
+                                <div class="config-value" id="shape-display">No shapes selected</div>
+                            </div>
+                            
+                            <div class="config-item">
+                                <div class="config-label">Shape Count</div>
+                                <div class="config-value" id="shape-count-display">0</div>
+                            </div>
+                        </div>
+                        
+                        <div class="config-grid">
+                            <div class="config-item">
+                                <div class="config-label">Amplitude (X, Y, Z)</div>
+                                <div class="config-value" id="amplitude-display">0.2, 1.0, 0.2</div>
+                            </div>
+                            
+                            <div class="config-item">
+                                <div class="config-label">Frequency (X, Y, Z)</div>
+                                <div class="config-value" id="frequency-display">1.0, 2.0, 1.0</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Container for shape-specific configuration -->
+                        <div class="config-grid" id="shape-config-grid"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let lastStartedConfiguration = null;
+        
+        // Initialize when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            // Sync sliders and number inputs
+            syncInputsAndSliders();
+            
+            // Enable shape card selection
+            setupShapeCards();
+            
+            // Add animations and visual feedback
+            addVisualFeedback();
+            
+            // Set up event listener for start button
+            const startButton = document.getElementById('startButton');
+            startButton.addEventListener('click', startSimulation);
+            
+            // Initialize configuration display
+            updateConfigDisplay();
+            
+            // Animate the configuration panel
+            setTimeout(animateConfigPanel, 500);
+            
+            // Handle responsive layout
+            handleResponsiveLayout();
+            
+            // Listen for window resize
+            window.addEventListener('resize', function() {
+                handleResponsiveLayout();
+            });
+        });
+        
+        // Function to handle responsive layout
+        function handleResponsiveLayout() {
+            const width = window.innerWidth;
+            const contentGrid = document.getElementById('content-grid');
+            
+            if (width < 1024) {
+                // Mobile and tablet view (stacked)
+                contentGrid.style.flexDirection = 'column';
+                
+                // Adjust panels for mobile/tablet
+                const leftPanel = document.querySelector('.lg\\:col-span-5');
+                const rightPanel = document.querySelector('.lg\\:col-span-7');
+                
+                if (leftPanel && rightPanel) {
+                    leftPanel.style.flex = '0 0 100%';
+                    leftPanel.style.width = '100%';
+                    leftPanel.style.marginBottom = '16px';
+                    
+                    rightPanel.style.flex = '0 0 100%';
+                    rightPanel.style.width = '100%';
+                }
+                
+                // Adjust configuration grid
+                const configGrids = document.querySelectorAll('.config-grid');
+                configGrids.forEach(grid => {
+                    if (width < 480) {
+                        grid.style.gridTemplateColumns = '1fr'; // Single column for very small screens
+                    } else {
+                        grid.style.gridTemplateColumns = 'repeat(2, 1fr)'; // Two columns for mobile/tablet
+                    }
+                });
+            } else {
+                // Desktop view (side-by-side)
+                contentGrid.style.flexDirection = 'row';
+                
+                // Adjust panels for desktop
+                const leftPanel = document.querySelector('.lg\\:col-span-5');
+                const rightPanel = document.querySelector('.lg\\:col-span-7');
+                
+                if (leftPanel && rightPanel) {
+                    if (width >= 1280) {
+                        // Large desktop
+                        leftPanel.style.flex = '0 0 calc(42% - 8px)';
+                        leftPanel.style.width = 'calc(42% - 8px)';
+                        
+                        rightPanel.style.flex = '0 0 calc(58% - 8px)';
+                        rightPanel.style.width = 'calc(58% - 8px)';
+                    } else {
+                        // Standard desktop
+                        leftPanel.style.flex = '0 0 calc(40% - 8px)';
+                        leftPanel.style.width = 'calc(40% - 8px)';
+                        
+                        rightPanel.style.flex = '0 0 calc(60% - 8px)';
+                        rightPanel.style.width = 'calc(60% - 8px)';
+                    }
+                    
+                    leftPanel.style.marginBottom = '0';
+                }
+                
+                // Adjust configuration grid
+                const configGrids = document.querySelectorAll('.config-grid');
+                configGrids.forEach(grid => {
+                    if (width >= 1280) {
+                        grid.style.gridTemplateColumns = 'repeat(4, 1fr)'; // Four columns for large desktop
+                    } else {
+                        grid.style.gridTemplateColumns = 'repeat(2, 1fr)'; // Two columns for standard desktop
+                    }
+                });
+            }
+            
+            // Adjust simulation placeholder for different screen sizes
+            const placeholder = document.getElementById('simulation-placeholder');
+            if (placeholder) {
+                if (width < 480) {
+                    placeholder.style.minHeight = '250px';
+                    placeholder.style.padding = '1rem';
+                } else if (width < 768) {
+                    placeholder.style.minHeight = '300px';
+                    placeholder.style.padding = '1.5rem';
+                } else if (width < 1024) {
+                    placeholder.style.minHeight = '350px';
+                    placeholder.style.padding = '1.5rem';
+                } else {
+                    placeholder.style.minHeight = '400px';
+                    placeholder.style.padding = '2rem';
+                }
+            }
+        }
+        
+        // Sync slider and number input values
+        function syncInputsAndSliders() {
+            // Function to link a slider with its corresponding number input
+            function linkInputs(sliderId, inputId) {
+                const slider = document.getElementById(sliderId);
+                const input = document.getElementById(inputId);
+                
+                if (!slider || !input) return;
+                
+                slider.addEventListener('input', function() {
+                    // For decimal values, format to one decimal place
+                    if (this.step && this.step.includes('.')) {
+                        input.value = parseFloat(this.value).toFixed(1);
+                    } else {
+                        input.value = this.value;
+                    }
+                    highlightValue(input);
+                    updateConfigDisplay();
+                });
+                
+                input.addEventListener('input', function() {
+                    slider.value = this.value;
+                    highlightValue(this);
+                    updateConfigDisplay();
+                });
+            }
+            
+            // Link all parameter sliders and inputs
+            linkInputs('SC-slider', 'SC');
+            linkInputs('BF-slider', 'BF');
+            linkInputs('AmpX-slider', 'AmpX');
+            linkInputs('AmpY-slider', 'AmpY');
+            linkInputs('AmpZ-slider', 'AmpZ');
+            linkInputs('freqX-slider', 'freqX');
+            linkInputs('freqY-slider', 'freqY');
+            linkInputs('freqZ-slider', 'freqZ');
+        }
+        
+        // Setup shape card selection
+        function setupShapeCards() {
+            const shapeCards = document.querySelectorAll('.shape-card');
+            const shapeCountInputs = document.querySelectorAll('input[id$="Count"]');
+            
+            shapeCards.forEach(card => {
+                card.addEventListener('click', function() {
+                    // Remove active class from all cards
+                    shapeCards.forEach(c => c.classList.remove('active'));
+                    
+                    // Add active class to clicked card
+                    this.classList.add('active');
+                    
+                    // Select the hidden radio button
+                    const radio = this.querySelector('input[type="radio"]');
+                    if (radio) radio.checked = true;
+                    
+                    // Update configuration display
+                    updateConfigDisplay();
+                });
+            });
+            
+            // Shape count handlers
+            shapeCountInputs.forEach(input => {
+                input.addEventListener('change', function() {
+                    updateConfigDisplay();
+                });
+                
+                // Add subtle animation to count input when focused
+                input.addEventListener('focus', function() {
+                    this.style.borderColor = 'var(--primary)';
+                });
+                
+                input.addEventListener('blur', function() {
+                    this.style.borderColor = '#E2E8F0';
+                });
+            });
+        }
+        
+        // Add visual feedback effects
+        function addVisualFeedback() {
+            // Add highlight effect when values change
+            const valueFields = document.querySelectorAll('.value-highlight');
+            
+            valueFields.forEach(field => {
+                field.addEventListener('focus', function() {
+                    this.classList.add('active');
+                });
+                
+                field.addEventListener('blur', function() {
+                    this.classList.remove('active');
+                });
+            });
+        }
+        
+        // Highlight value when changed
+        function highlightValue(element) {
+            // Add a brief highlight effect to show the value has changed
+            element.classList.add('active');
+            setTimeout(() => {
+                element.classList.remove('active');
+            }, 500);
+            
+            // Highlight the corresponding display value
+            const idToDisplayMap = {
+                'SC': 'sc-display',
+                'BF': 'bf-display',
+                'AmpX': 'amplitude-display',
+                'AmpY': 'amplitude-display',
+                'AmpZ': 'amplitude-display',
+                'freqX': 'frequency-display',
+                'freqY': 'frequency-display',
+                'freqZ': 'frequency-display'
+            };
+            
+            const displayId = idToDisplayMap[element.id];
+            if (displayId) {
+                const displayEl = document.getElementById(displayId);
+                if (displayEl) {
+                    displayEl.classList.add('highlight-value');
+                    setTimeout(() => {
+                        displayEl.classList.remove('highlight-value');
+                    }, 600);
+                }
+            }
+        }
+        
+        // Animate elements on page load with staggered timing
+        function animateConfigPanel() {
+            const sections = document.querySelectorAll('.parameter-section');
+            sections.forEach((section, index) => {
+                setTimeout(() => {
+                    section.style.opacity = "0";
+                    section.style.transform = "translateY(20px)";
+                    
+                    setTimeout(() => {
+                        section.style.transition = "all 0.6s cubic-bezier(0.16, 1, 0.3, 1)";
+                        section.style.opacity = "1";
+                        section.style.transform = "translateY(0)";
+                    }, 50);
+                }, index * 120);
+            });
+        }
+        
+        // Update the current configuration display
+        function updateConfigDisplay() {
+            // Core parameters
+            const scDisplay = document.getElementById('sc-display');
+            const bfDisplay = document.getElementById('bf-display');
+            if (scDisplay) scDisplay.textContent = document.getElementById('SC').value;
+            if (bfDisplay) bfDisplay.textContent = document.getElementById('BF').value;
+            
+            // Shape Configuration
+            const shapeDisplay = document.getElementById('shape-display');
+            const shapeCountDisplay = document.getElementById('shape-count-display');
+            
+            // Collect all shape counts
+            const shapeTypes = [
+                { id: 'sphere', name: 'Sphere' }, 
+                { id: 'rectangle', name: 'Rectangle' }, 
+                { id: 'quartersphere', name: 'Quarter Sphere' },
+                { id: 'airfoil', name: 'Airfoil' },
+                { id: 'halfsphere', name: 'Half Sphere' },
+                { id: 'pyramid', name: 'Pyramid' }
+            ];
+            
+            const shapeCounts = shapeTypes.map(shape => {
+                const count = parseInt(document.getElementById(`${shape.id}Count`).value) || 0;
+                return { type: shape.name, count: count };
+            });
+            
+            // Calculate total shape count
+            const totalShapeCount = shapeCounts.reduce((sum, shape) => sum + shape.count, 0);
+            
+            // Filter out zero-count shapes
+            const activeShapes = shapeCounts.filter(shape => shape.count > 0);
+            
+            // Format shape display
+            let shapeText = activeShapes.length > 0 
+                ? activeShapes.map(shape => `${shape.count} ${shape.type}${shape.count !== 1 ? 's' : ''}`).join(', ')
+                : 'No shapes selected';
+            
+            shapeDisplay.textContent = shapeText;
+            shapeCountDisplay.textContent = totalShapeCount;
+            
+            // Update shape configuration details
+            updateShapeConfigDetails(shapeCounts);
+            
+            // Amplitude and Frequency display
+            const ampDisplay = document.getElementById('amplitude-display');
+            const freqDisplay = document.getElementById('frequency-display');
+            
+            if (ampDisplay) {
+                const ampX = parseFloat(document.getElementById('AmpX').value).toFixed(1);
+                const ampY = parseFloat(document.getElementById('AmpY').value).toFixed(1);
+                const ampZ = parseFloat(document.getElementById('AmpZ').value).toFixed(1);
+                ampDisplay.textContent = `${ampX}, ${ampY}, ${ampZ}`;
+            }
+            
+            if (freqDisplay) {
+                const freqX = parseFloat(document.getElementById('freqX').value).toFixed(1);
+                const freqY = parseFloat(document.getElementById('freqY').value).toFixed(1);
+                const freqZ = parseFloat(document.getElementById('freqZ').value).toFixed(1);
+                freqDisplay.textContent = `${freqX}, ${freqY}, ${freqZ}`;
+            }
+        }
+        
+        // Update shape configuration details
+        function updateShapeConfigDetails(shapeCounts) {
+            // Get the shape configuration grid
+            const shapeConfigGrid = document.getElementById('shape-config-grid');
+            if (!shapeConfigGrid) return;
+            
+            // Clear existing shape configuration
+            shapeConfigGrid.innerHTML = '';
+            
+            // Create configuration items for each shape
+            shapeCounts.forEach(shape => {
+                if (shape.count > 0) {
+                    const configItem = document.createElement('div');
+                    configItem.classList.add('config-item', 'highlight-value');
+                    
+                    const label = document.createElement('div');
+                    label.classList.add('config-label');
+                    label.textContent = shape.type + 's';
+                    
+                    const value = document.createElement('div');
+                    value.classList.add('config-value');
+                    value.textContent = shape.count;
+                    
+                    configItem.appendChild(label);
+                    configItem.appendChild(value);
+                    
+                    // Add animation
+                    configItem.addEventListener('animationend', () => {
+                        configItem.classList.remove('highlight-value');
+                    });
+                    
+                    shapeConfigGrid.appendChild(configItem);
+                }
+            });
+        }
+        
+        // Function to start the simulation
+        function startSimulation() {
+            // Collect form data
+            const formData = {
+                SC: document.getElementById('SC').value,
+                BF: document.getElementById('BF').value,
+                AmpX: document.getElementById('AmpX').value,
+                AmpY: document.getElementById('AmpY').value,
+                AmpZ: document.getElementById('AmpZ').value,
+                freqX: document.getElementById('freqX').value,
+                freqY: document.getElementById('freqY').value,
+                freqZ: document.getElementById('freqZ').value,
+                sphereCount: document.getElementById('sphereCount').value,
+                rectangleCount: document.getElementById('rectangleCount').value,
+                quartersphereCount: document.getElementById('quartersphereCount').value,
+                airfoilCount: document.getElementById('airfoilCount').value,
+                halfsphereCount: document.getElementById('halfsphereCount').value,
+                pyramidCount: document.getElementById('pyramidCount').value
+            };
+
+            lastStartedConfiguration = formData;
+            updateConfigDisplayFromStartedConfig();
+            
+            // Show loading state for the button
+            const startButton = document.getElementById('startButton');
+            const originalButtonContent = startButton.innerHTML;
+            startButton.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="animate-spin">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <path d="M12 6v6l4 2"></path>
+                </svg>
+                Starting Simulation...
+            `;
+            startButton.disabled = true;
+            
+            // Add pulse effect to the simulation container
+            const simulationPanel = document.querySelector('.lg\\:col-span-7 > div');
+            simulationPanel.classList.add('glow-animation');
+            
+            // Determine the backend URL
+            let backendURL;
+            if (window.location.protocol === 'https:') {
+                backendURL = 'https://' + window.location.hostname.replace('www.', '') + '/';
+            } else {
+                backendURL = 'http://' + window.location.hostname.replace('www.', '') + '/';
+            }
+            
+            if (window.location.hostname.includes('localhost')) {
+                backendURL = 'http://localhost:5000';
+            }
+            
+            // Send parameters to the server
+            fetch(`${backendURL}/set-data`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                credentials: 'same-origin',
+                body: JSON.stringify(formData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === "error") {
+                    throw new Error(data.message || "Unknown error");
+                }
+                
+                // Hide placeholder with fade-out effect
+                const placeholder = document.getElementById('simulation-placeholder');
+                placeholder.style.transition = 'opacity 0.5s ease';
+                placeholder.style.opacity = '0';
+                
+                setTimeout(() => {
+                    // Hide placeholder and show iframe
+                    placeholder.style.display = 'none';
+                    const iframe = document.getElementById('unity-iframe');
+                    iframe.style.display = 'block';
+                    iframe.src = '/game';
+                    
+                    // Update the right panel to show "Simulation Running"
+                    const statusElement = document.querySelector('.status');
+                    if (statusElement) {
+                        statusElement.innerHTML = '<span class="status-indicator status-running"></span><span class="text-xs text-gray-600 font-medium">Simulation Running</span>';
+                    }
+                    
+                    // Remove glow effect
+                    simulationPanel.classList.remove('glow-animation');
+                    
+                    // Reset start button
+                    startButton.innerHTML = originalButtonContent;
+                    startButton.disabled = false;
+                }, 500);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showError(error.message);
+                
+                // Reset button state
+                startButton.innerHTML = originalButtonContent;
+                startButton.disabled = false;
+            });
+        }
+        
+        // Update configuration display when simulation starts
+        function updateConfigDisplayFromStartedConfig() {
+            if (!lastStartedConfiguration) return;
+
+            const config = lastStartedConfiguration;
+
+            // Update Spring Constant and Bond Force
+            document.getElementById('sc-display').textContent = config.SC;
+            document.getElementById('bf-display').textContent = config.BF;
+
+            // Determine active shape and shape count
+            let activeShape = '';
+            let shapeCount = 0;
+
+            // Count all active shapes
+            const shapes = [];
+            if (parseInt(config.sphereCount) > 0) {
+                shapes.push(`${config.sphereCount} Sphere${config.sphereCount > 1 ? 's' : ''}`);
+                shapeCount += parseInt(config.sphereCount);
+            }
+            if (parseInt(config.rectangleCount) > 0) {
+                shapes.push(`${config.rectangleCount} Rectangle${config.rectangleCount > 1 ? 's' : ''}`);
+                shapeCount += parseInt(config.rectangleCount);
+            }
+            if (parseInt(config.quartersphereCount) > 0) {
+                shapes.push(`${config.quartersphereCount} Quarter Sphere${config.quartersphereCount > 1 ? 's' : ''}`);
+                shapeCount += parseInt(config.quartersphereCount);
+            }
+
+            activeShape = shapes.length > 0 ? shapes.join(', ') : 'No shapes selected';
+
+            document.getElementById('shape-display').textContent = activeShape;
+            document.getElementById('shape-count-display').textContent = shapeCount;
+
+            // Update Amplitude and Frequency
+            const ampDisplay = document.getElementById('amplitude-display');
+            const freqDisplay = document.getElementById('frequency-display');
+
+            if (ampDisplay) {
+                ampDisplay.textContent = `${parseFloat(config.AmpX).toFixed(1)}, ${parseFloat(config.AmpY).toFixed(1)}, ${parseFloat(config.AmpZ).toFixed(1)}`;
+            }
+
+            if (freqDisplay) {
+                freqDisplay.textContent = `${parseFloat(config.freqX).toFixed(1)}, ${parseFloat(config.freqY).toFixed(1)}, ${parseFloat(config.freqZ).toFixed(1)}`;
+            }
+        }
+        
+        // Show error message if connection fails
+        function showError(message) {
+            // Show error in simulation area
+            const placeholder = document.getElementById('simulation-placeholder');
+            placeholder.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-red-500 mb-4">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+                <h3 class="text-xl font-semibold text-gray-800 mb-2">Connection Error</h3>
+                <p class="text-gray-500 mb-6 max-w-md">${message}</p>
+                <button class="px-4 py-2 bg-primary text-white rounded-lg shadow-sm hover:bg-primary-dark transition-colors" onclick="location.reload()">Retry</button>
+            `;
+            
+            // Make sure the placeholder is visible
+            placeholder.style.display = 'flex';
+            placeholder.style.opacity = '1';
+            
+            // Remove glow effect
+            const simulationPanel = document.querySelector('.lg\\:col-span-7 > div');
+            simulationPanel.classList.remove('glow-animation');
+        }
+        
+        // Listen for messages from the Unity iframe
+        window.addEventListener('message', function(event) {
+            // Check if message source is iframe
+            const iframe = document.getElementById('unity-iframe');
+            if (iframe && event.source === iframe.contentWindow) {
+                const data = event.data;
+                
+                // Process messages from Unity
+                if (data.type === 'unityReady')
+                {
+                    console.log('Unity application is ready');
+                } else if (data.type === 'simulationStatus') {
+                    console.log('Simulation status:', data.status);
+                    
+                    // Update status indicator based on the status
+                    const statusIndicator = document.querySelector('.status-indicator');
+                    if (statusIndicator) {
+                        if (data.status === 'running') {
+                            statusIndicator.classList.add('status-running');
+                        } else {
+                            statusIndicator.classList.remove('status-running');
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Function to increment/decrement number inputs
+        function incrementNumber(id, step) {
+            const input = document.getElementById(id);
+            const slider = document.getElementById(id + '-slider');
+            const currentValue = parseFloat(input.value) || 0;
+            const newValue = currentValue + step;
+            
+            input.value = newValue;
+            if (slider) slider.value = newValue;
+            
+            // Trigger input event to update everything
+            const event = new Event('input', { bubbles: true });
+            input.dispatchEvent(event);
+        }
+        
+        function decrementNumber(id, step) {
+            const input = document.getElementById(id);
+            const slider = document.getElementById(id + '-slider');
+            const currentValue = parseFloat(input.value) || 0;
+            const newValue = Math.max(0, currentValue - step); // Prevent negative values
+            
+            input.value = newValue;
+            if (slider) slider.value = newValue;
+            
+            // Trigger input event to update everything
+            const event = new Event('input', { bubbles: true });
+            input.dispatchEvent(event);
+        }
+    </script>
+</body>
+</html>
