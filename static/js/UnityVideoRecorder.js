@@ -1,5 +1,5 @@
-// UnityVideoRecorder.js - Fixed Layout for All Views
-// This version guarantees all three views are displayed properly regardless of received frames
+// UnityVideoRecorder.js - Cross-Browser Compatible Version
+// This version works on Chrome, Firefox, Safari (macOS and iOS)
 
 window.UnityVideoRecorder = {
     recorder: null,
@@ -16,6 +16,31 @@ window.UnityVideoRecorder = {
     isProcessing: false,
     lastFrameTimes: {}, // Track when we last received frames for each view
     frameImages: {}, // Store the latest frame for each view
+    
+    // Get the best supported MIME type for the current browser
+    getSupportedMimeType: function() {
+        // Try different MIME types in order of preference
+        const mimeTypes = [
+            'video/webm;codecs=vp9',
+            'video/webm;codecs=vp8',
+            'video/webm',
+            'video/mp4',
+            'video/mp4;codecs=h264',
+            'video/mp4;codecs=avc1',
+            'video/quicktime' // For Safari
+        ];
+        
+        for (let type of mimeTypes) {
+            if (MediaRecorder.isTypeSupported(type)) {
+                console.log(`Browser supports MIME type: ${type}`);
+                return type;
+            }
+        }
+        
+        // If none are supported, return null and we'll handle the fallback
+        console.warn("No preferred MIME types supported by this browser");
+        return null;
+    },
     
     // Called by Unity to start recording
     startRecording: function(jsonData) {
@@ -60,11 +85,28 @@ window.UnityVideoRecorder = {
             // Create a stream from the canvas
             const stream = this.recordingCanvas.captureStream(20); // Balanced 20fps
             
-            // Create a media recorder with moderate quality
-            this.recorder = new MediaRecorder(stream, {
-                mimeType: 'video/webm;codecs=vp9',
-                videoBitsPerSecond: 3000000 // 3Mbps for balanced quality/performance
-            });
+            // Get supported MIME type
+            const mimeType = this.getSupportedMimeType();
+            
+            // Set recorder options based on browser support
+            const recorderOptions = {};
+            
+            if (mimeType) {
+                recorderOptions.mimeType = mimeType;
+                recorderOptions.videoBitsPerSecond = 3000000; // 3Mbps
+            } else {
+                // If no specified mime type is supported, use browser defaults
+                console.log("Using browser default encoding settings");
+            }
+            
+            try {
+                // Create a media recorder with appropriate settings
+                this.recorder = new MediaRecorder(stream, recorderOptions);
+            } catch (e) {
+                console.error("Failed to create MediaRecorder with options. Trying with defaults:", e);
+                // Fallback to default options
+                this.recorder = new MediaRecorder(stream);
+            }
             
             // Store recorded chunks
             this.chunks = [];
@@ -98,7 +140,7 @@ window.UnityVideoRecorder = {
             this.viewWidth = viewWidth;
             this.viewHeight = viewHeight;
             
-            console.log("Recording started with balanced quality/performance settings");
+            console.log("Recording started with cross-platform settings");
             
             // Setup a regular redraw interval to ensure all views stay visible
             this.redrawInterval = setInterval(() => this.redrawAllViews(), 100);
@@ -348,31 +390,43 @@ window.UnityVideoRecorder = {
             this.recorder.onstop = () => {
                 try {
                     // Create blob from chunks
-                    const blob = new Blob(this.chunks, { type: 'video/webm; codecs=vp9' });
+                    // The type must match what we're recording with, or use a compatible format
+                    let mimeType = 'video/webm';
                     
-                    // Download the file
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.style.display = 'none';
-                    a.href = url;
-                    a.download = `simulation-views-${new Date().toISOString().replace(/[:.]/g, '-')}.webm`;
-                    document.body.appendChild(a);
-                    a.click();
+                    // Try to determine the MIME type from the recorder
+                    if (this.recorder.mimeType) {
+                        // Extract base MIME type without codecs
+                        mimeType = this.recorder.mimeType.split(';')[0];
+                    }
+                    
+                    console.log(`Creating blob with MIME type: ${mimeType}`);
+                    const blob = new Blob(this.chunks, { type: mimeType });
+                    
+                    // Determine file extension based on MIME type
+                    let fileExtension = 'webm';
+                    if (mimeType.includes('mp4')) {
+                        fileExtension = 'mp4';
+                    } else if (mimeType.includes('quicktime')) {
+                        fileExtension = 'mov';
+                    }
+                    
+                    // For Safari/iOS special handling
+                    if (this.isIOSorSafari()) {
+                        console.log("iOS/Safari detected, using special download method");
+                        this.handleSafariDownload(blob, fileExtension);
+                    } else {
+                        // Standard download method for other browsers
+                        this.standardDownload(blob, fileExtension);
+                    }
                     
                     // Cleanup
-                    setTimeout(() => {
-                        document.body.removeChild(a);
-                        URL.revokeObjectURL(url);
-                        
-                        // Clean up resources
-                        this.chunks = [];
-                        this.recordingCanvas = null;
-                        this.recordingCtx = null;
-                        this.recorder = null;
-                        this.frameImages = {};
-                        
-                        console.log('Recording downloaded and resources cleaned up');
-                    }, 100);
+                    this.chunks = [];
+                    this.recordingCanvas = null;
+                    this.recordingCtx = null;
+                    this.recorder = null;
+                    this.frameImages = {};
+                    
+                    console.log('Recording downloaded and resources cleaned up');
                 } catch (err) {
                     console.error("Error finishing recording:", err);
                     alert("Error finishing recording: " + err.message);
@@ -389,26 +443,162 @@ window.UnityVideoRecorder = {
         }
     },
     
+    // Check if the browser is Safari or iOS
+    isIOSorSafari: function() {
+        const userAgent = navigator.userAgent.toLowerCase();
+        const isSafari = /^((?!chrome|android).)*safari/i.test(userAgent);
+        const isIOS = /iphone|ipad|ipod/.test(userAgent);
+        return isSafari || isIOS;
+    },
+    
+    // Standard download for Chrome/Firefox/etc
+    standardDownload: function(blob, fileExtension) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = `simulation-views-${new Date().toISOString().replace(/[:.]/g, '-')}.${fileExtension}`;
+        document.body.appendChild(a);
+        a.click();
+        
+        // Cleanup
+        setTimeout(() => {
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }, 100);
+    },
+    
+    // Special handling for Safari/iOS
+    handleSafariDownload: function(blob, fileExtension) {
+        const url = URL.createObjectURL(blob);
+        
+        // For iOS Safari, we open the video in a new window
+        // The user can then save it manually
+        const newWindow = window.open();
+        if (newWindow) {
+            newWindow.document.write(`
+                <html>
+                <head>
+                    <title>Download Recorded Video</title>
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <style>
+                        body { 
+                            font-family: Arial, sans-serif;
+                            text-align: center;
+                            padding: 20px;
+                            background-color: #f5f5f5;
+                        }
+                        h1 { color: #333; }
+                        .container {
+                            max-width: 800px;
+                            margin: 0 auto;
+                            background-color: white;
+                            padding: 20px;
+                            border-radius: 10px;
+                            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                        }
+                        video {
+                            max-width: 100%;
+                            margin: 20px 0;
+                            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+                        }
+                        .instructions {
+                            background-color: #f8f9fa;
+                            padding: 15px;
+                            border-radius: 5px;
+                            margin: 20px 0;
+                            text-align: left;
+                        }
+                        .instructions li {
+                            margin-bottom: 10px;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="container">
+                        <h1>Your Video is Ready</h1>
+                        <p>Since you're using Safari/iOS, please follow these steps to save the video:</p>
+                        
+                        <video controls autoplay>
+                            <source src="${url}" type="video/${fileExtension}">
+                            Your browser does not support the video tag.
+                        </video>
+                        
+                        <div class="instructions">
+                            <strong>To save the video:</strong>
+                            <ol>
+                                <li>Tap and hold on the video above</li>
+                                <li>Select "Download Video" or "Save Video" from the menu</li>
+                                <li>The video will be saved to your device</li>
+                            </ol>
+                        </div>
+                        
+                        <p>Filename: simulation-views-${new Date().toISOString().replace(/[:.]/g, '-')}.${fileExtension}</p>
+                    </div>
+                </body>
+                </html>
+            `);
+            newWindow.document.close();
+        } else {
+            // If popup is blocked, fall back to an alert with instructions
+            alert("Please enable popups to download the video, or long-press the video player and select 'Download Video'");
+            
+            // Create an element in the current page
+            const container = document.createElement('div');
+            container.style.position = 'fixed';
+            container.style.top = '0';
+            container.style.left = '0';
+            container.style.width = '100%';
+            container.style.height = '100%';
+            container.style.backgroundColor = 'rgba(0,0,0,0.8)';
+            container.style.zIndex = '9999';
+            container.style.display = 'flex';
+            container.style.flexDirection = 'column';
+            container.style.alignItems = 'center';
+            container.style.justifyContent = 'center';
+            container.style.padding = '20px';
+            container.style.boxSizing = 'border-box';
+            
+            container.innerHTML = `
+                <div style="background:white; max-width:800px; padding:20px; border-radius:10px; text-align:center;">
+                    <h2>Your Video is Ready</h2>
+                    <p>Tap and hold the video to save it:</p>
+                    <video controls style="max-width:100%; margin:10px 0;" src="${url}"></video>
+                    <button style="padding:10px 20px; background:#007bff; color:white; border:none; border-radius:5px; cursor:pointer;" onclick="this.parentNode.parentNode.remove()">Close</button>
+                </div>
+            `;
+            
+            document.body.appendChild(container);
+        }
+        
+        // Keep the URL object alive as we're showing it to the user
+        // The user needs to manually save it now
+    },
+    
     // Method to download recordings
     downloadAllRecordings: function() {
         if (this.isRecording) {
             this.stopRecording();
         } else if (this.chunks && this.chunks.length > 0) {
             // If we have chunks but we're not recording, create a download
-            const blob = new Blob(this.chunks, { type: 'video/webm; codecs=vp9' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.style.display = 'none';
-            a.href = url;
-            a.download = `simulation-views-${new Date().toISOString().replace(/[:.]/g, '-')}.webm`;
-            document.body.appendChild(a);
-            a.click();
+            // Determine the appropriate MIME type
+            let mimeType = 'video/webm';
+            let fileExtension = 'webm';
             
-            // Cleanup
-            setTimeout(() => {
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-            }, 100);
+            // Check for Safari/iOS
+            if (this.isIOSorSafari()) {
+                mimeType = 'video/mp4';
+                fileExtension = 'mp4';
+            }
+            
+            const blob = new Blob(this.chunks, { type: mimeType });
+            
+            // Use appropriate download method based on browser
+            if (this.isIOSorSafari()) {
+                this.handleSafariDownload(blob, fileExtension);
+            } else {
+                this.standardDownload(blob, fileExtension);
+            }
         } else {
             alert('No video recordings available to download');
         }
