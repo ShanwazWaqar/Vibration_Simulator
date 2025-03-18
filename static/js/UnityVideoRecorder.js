@@ -73,7 +73,7 @@ window.UnityVideoRecorder = {
         
         modal.innerHTML = `
             <div style="background:white; width:90%; max-width:500px; border-radius:10px; overflow:hidden;">
-                <div style="background:#f44336; color:white; padding:15px; text-align:center;">
+                <div style="background:#BA0C2F; color:white; padding:15px; text-align:center;">
                     <h2 style="margin:0; font-size:18px;">iOS Recording Notice</h2>
                 </div>
                 <div style="padding:20px;">
@@ -84,7 +84,7 @@ window.UnityVideoRecorder = {
                         <li>You'll need to tap and hold on the video to save it</li>
                     </ul>
                     <div style="text-align:center;">
-                        <button id="ios-notice-continue" style="background:#f44336; color:white; border:none; padding:10px 25px; border-radius:5px; font-size:16px; cursor:pointer;">
+                        <button id="ios-notice-continue" style="background:#BA0C2F; color:white; border:none; padding:10px 25px; border-radius:5px; font-size:16px; cursor:pointer;">
                             Continue to Recording
                         </button>
                     </div>
@@ -209,28 +209,7 @@ window.UnityVideoRecorder = {
                     // Setup a regular redraw interval to ensure all views stay visible
                     self.redrawInterval = setInterval(() => self.redrawAllViews(), 100);
                     
-                    // For iOS users, display a small recording indicator with download instructions
-                    if (self.isIOSorSafari()) {
-                        const iosIndicator = document.createElement('div');
-                        iosIndicator.id = 'ios-recording-indicator';
-                        iosIndicator.style.position = 'fixed';
-                        iosIndicator.style.top = '10px';
-                        iosIndicator.style.right = '10px';
-                        iosIndicator.style.background = 'rgba(244, 67, 54, 0.9)';
-                        iosIndicator.style.color = 'white';
-                        iosIndicator.style.padding = '8px 12px';
-                        iosIndicator.style.borderRadius = '5px';
-                        iosIndicator.style.fontSize = '14px';
-                        iosIndicator.style.zIndex = '9997';
-                        iosIndicator.style.display = 'flex';
-                        iosIndicator.style.alignItems = 'center';
-                        iosIndicator.style.boxShadow = '0 2px 5px rgba(0,0,0,0.3)';
-                        iosIndicator.innerHTML = `
-                            <span style="display:inline-block; width:10px; height:10px; background:white; border-radius:50%; margin-right:8px;"></span>
-                            <span>Recording... (iOS compatible)</span>
-                        `;
-                        document.body.appendChild(iosIndicator);
-                    }
+                    // We removed the iOS indicator code here
                 } catch (error) {
                     console.error('Error in recording callback:', error);
                     alert("Failed to start recording: " + error.message);
@@ -580,32 +559,32 @@ window.UnityVideoRecorder = {
         // Create a clean, modern UI container
         overlay.innerHTML = `
             <div style="background:white; width:90%; max-width:600px; border-radius:12px; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.3);">
-                <!-- Header -->
-                <div style="background:#f44336; color:white; padding:15px 20px; display:flex; justify-content:space-between; align-items:center;">
+                <!-- Header - UGA Red color -->
+                <div style="background:#BA0C2F; color:white; padding:15px 20px; display:flex; justify-content:space-between; align-items:center;">
                     <h2 style="margin:0; font-size:18px;">Your Video is Ready</h2>
                     <button id="close-overlay-btn" style="background:transparent; border:none; color:white; font-size:22px; cursor:pointer; padding:0 5px;">×</button>
                 </div>
                 
-                <!-- Instructions with animation -->
+                <!-- Instructions with animation - UGA colors -->
                 <div style="padding:20px; border-bottom:1px solid #eee;">
                     <div style="display:flex; align-items:center; margin-bottom:15px;">
-                        <div style="min-width:40px; height:40px; background:#f44336; color:white; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-right:15px; font-weight:bold;">1</div>
+                        <div style="min-width:40px; height:40px; background:#BA0C2F; color:white; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-right:15px; font-weight:bold;">1</div>
                         <p style="margin:0; font-size:16px;">Tap and hold on the video below</p>
                     </div>
                     <div style="display:flex; align-items:center; margin-bottom:15px;">
-                        <div style="min-width:40px; height:40px; background:#f44336; color:white; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-right:15px; font-weight:bold;">2</div>
+                        <div style="min-width:40px; height:40px; background:#BA0C2F; color:white; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-right:15px; font-weight:bold;">2</div>
                         <p style="margin:0; font-size:16px;">Select "Download Video" or "Save Video"</p>
                     </div>
                     <div style="display:flex; align-items:center;">
-                        <div style="min-width:40px; height:40px; background:#f44336; color:white; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-right:15px; font-weight:bold;">3</div>
+                        <div style="min-width:40px; height:40px; background:#BA0C2F; color:white; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-right:15px; font-weight:bold;">3</div>
                         <p style="margin:0; font-size:16px;">Your video will be saved to your device</p>
                     </div>
                 </div>
                 
-                <!-- Video player with attention-grabbing border -->
+                <!-- Video player with attention-grabbing border - UGA red -->
                 <div style="padding:20px; position:relative;">
-                    <div style="border:2px dashed #f44336; padding:8px; border-radius:8px; position:relative;">
-                        <div style="position:absolute; top:-12px; left:50%; transform:translateX(-50%); background:white; padding:0 10px; color:#f44336; font-weight:bold;">TAP AND HOLD HERE</div>
+                    <div style="border:2px dashed #BA0C2F; padding:8px; border-radius:8px; position:relative;">
+                        <div style="position:absolute; top:-12px; left:50%; transform:translateX(-50%); background:white; padding:0 10px; color:#BA0C2F; font-weight:bold;">TAP AND HOLD HERE</div>
                         <video controls style="width:100%; display:block; border-radius:4px; box-shadow:0 2px 8px rgba(0,0,0,0.1);">
                             <source src="${url}" type="video/${fileExtension}">
                             Your browser does not support the video tag.
@@ -614,10 +593,10 @@ window.UnityVideoRecorder = {
                     <p style="text-align:center; margin-top:15px; color:#666; font-size:14px;">Filename: ${filename}</p>
                 </div>
                 
-                <!-- Bottom controls -->
+                <!-- Bottom controls - UGA colors -->
                 <div style="padding:15px 20px; background:#f5f5f5; text-align:center;">
                     <button id="remind-later-btn" style="background:#666; color:white; border:none; padding:10px 20px; border-radius:4px; margin-right:10px; cursor:pointer;">Remind me later</button>
-                    <button id="direct-link-btn" style="background:#f44336; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer;">Try Direct Link</button>
+                    <button id="direct-link-btn" style="background:#BA0C2F; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer;">Try Direct Link</button>
                 </div>
             </div>
         `;
@@ -637,7 +616,7 @@ window.UnityVideoRecorder = {
             reminderBtn.style.position = 'fixed';
             reminderBtn.style.bottom = '20px';
             reminderBtn.style.right = '20px';
-            reminderBtn.style.backgroundColor = '#f44336';
+            reminderBtn.style.backgroundColor = '#BA0C2F';
             reminderBtn.style.color = 'white';
             reminderBtn.style.padding = '12px';
             reminderBtn.style.borderRadius = '50%';
@@ -684,9 +663,9 @@ window.UnityVideoRecorder = {
         const tapAnimation = document.createElement('style');
         tapAnimation.textContent = `
             @keyframes pulseAttention {
-                0% { box-shadow: 0 0 0 0 rgba(244, 67, 54, 0.7); }
-                70% { box-shadow: 0 0 0 10px rgba(244, 67, 54, 0); }
-                100% { box-shadow: 0 0 0 0 rgba(244, 67, 54, 0); }
+                0% { box-shadow: 0 0 0 0 rgba(186, 12, 47, 0.7); }
+                70% { box-shadow: 0 0 0 10px rgba(186, 12, 47, 0); }
+                100% { box-shadow: 0 0 0 0 rgba(186, 12, 47, 0); }
             }
             #video-download-overlay video {
                 animation: pulseAttention 2s infinite;
@@ -723,4 +702,4 @@ window.UnityVideoRecorder = {
             alert('No video recordings available to download');
         }
     }
-}
+};
