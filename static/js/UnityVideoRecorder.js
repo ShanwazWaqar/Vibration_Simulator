@@ -459,11 +459,16 @@ window.UnityVideoRecorder = {
             iosIndicator.remove();
         }
         
+        // Make sure notification container exists and is shown properly
+        this.ensureNotificationContainer();
+        
+        // Show processing message in notification container
+        if (this.isIOSorSafari()) {
+            this.showNotification("Processing video. Please wait...");
+        }
+        
         // Stop the recorder after processing remaining frames
         if (this.recorder && this.recorder.state !== 'inactive') {
-            // Show processing message
-            // alert("Processing video. Please wait...");
-            
             this.recorder.onstop = () => {
                 try {
                     // Create blob from chunks
@@ -490,6 +495,9 @@ window.UnityVideoRecorder = {
                     // For Safari/iOS special handling
                     if (this.isIOSorSafari()) {
                         console.log("iOS/Safari detected, using special download method");
+                        // Hide the notification first
+                        this.hideNotification();
+                        // Then show the download overlay
                         this.handleSafariDownload(blob, fileExtension);
                     } else {
                         // Standard download method for other browsers
@@ -506,7 +514,7 @@ window.UnityVideoRecorder = {
                     console.log('Recording downloaded and resources cleaned up');
                 } catch (err) {
                     console.error("Error finishing recording:", err);
-                    alert("Error finishing recording: " + err.message);
+                    this.showNotification("Error finishing recording: " + err.message, 3000);
                 }
             };
             
@@ -516,7 +524,254 @@ window.UnityVideoRecorder = {
             }, 500);
         } else {
             console.warn("Recorder not available or already inactive");
-            // alert("No video recorded or recorder already stopped.");
+            this.hideNotification();
+        }
+    },
+    
+    // Add notification functionality for better user feedback
+    ensureNotificationContainer: function() {
+        if (!document.getElementById('video-notification-container')) {
+            const notificationContainer = document.createElement('div');
+            notificationContainer.id = 'video-notification-container';
+            notificationContainer.style.position = 'fixed';
+            notificationContainer.style.top = '80px';
+            notificationContainer.style.left = '50%';
+            notificationContainer.style.transform = 'translateX(-50%)';
+            notificationContainer.style.zIndex = '1000000';
+            notificationContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.85)';
+            notificationContainer.style.borderRadius = '8px';
+            notificationContainer.style.padding = '16px 24px';
+            notificationContainer.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.5)';
+            notificationContainer.style.display = 'flex';
+            notificationContainer.style.alignItems = 'center';
+            notificationContainer.style.justifyContent = 'center';
+            notificationContainer.style.transition = 'all 0.3s ease';
+            notificationContainer.style.borderLeft = '4px solid #ba0c2f';
+            notificationContainer.style.maxWidth = '90%';
+            notificationContainer.style.width = 'auto';
+            notificationContainer.style.opacity = '0';
+            notificationContainer.style.visibility = 'hidden';
+            
+            notificationContainer.innerHTML = `
+                <div style="display: flex; align-items: center; color: white; font-family: 'Inter', sans-serif;">
+                    <div style="margin-right: 16px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+                        <svg viewBox="0 0 50 50" style="width: 32px; height: 32px; animation: spin 1.5s linear infinite;">
+                            <circle cx="25" cy="25" r="20" fill="none" stroke="#ba0c2f" stroke-width="5" style="stroke-linecap: round; animation: dash 1.5s ease-in-out infinite;"></circle>
+                        </svg>
+                    </div>
+                    <div id="video-notification-message" style="font-size: 16px; font-weight: 500; letter-spacing: 0.2px;"></div>
+                </div>
+            `;
+            
+            // Add animation keyframes
+            const styleSheet = document.createElement('style');
+            styleSheet.textContent = `
+                @keyframes spin {
+                    100% { transform: rotate(360deg); }
+                }
+                @keyframes dash {
+                    0% { stroke-dasharray: 1, 150; stroke-dashoffset: 0; }
+                    50% { stroke-dasharray: 90, 150; stroke-dashoffset: -35; }
+                    100% { stroke-dasharray: 90, 150; stroke-dashoffset: -124; }
+                }
+            `;
+            document.head.appendChild(styleSheet);
+            
+            document.body.appendChild(notificationContainer);
+        }
+    },
+    
+    showNotification: function(message, duration = 0) {
+        this.ensureNotificationContainer();
+        const container = document.getElementById('video-notification-container');
+        const messageEl = document.getElementById('video-notification-message');
+        
+        if (container && messageEl) {
+            messageEl.textContent = message;
+            
+            // Show notification
+            container.style.opacity = '1';
+            container.style.visibility = 'visible';
+            container.style.transform = 'translate(-50%, 0)';
+            
+            // Auto-hide after duration if specified
+            if (duration > 0) {
+                setTimeout(() => {
+                    this.hideNotification();
+                }, duration);
+            }
+        }
+    },
+    
+    hideNotification: function() {
+        const container = document.getElementById('video-notification-container');
+        if (container) {
+            container.style.opacity = '0';
+            container.style.visibility = 'hidden';
+            container.style.transform = 'translate(-50%, -20px)';
+        }
+    },
+    
+    // Improved handleSafariDownload function for better iOS experience
+    handleSafariDownload: function(blob, fileExtension) {
+        const url = URL.createObjectURL(blob);
+        const filename = `simulation-views-${new Date().toISOString().replace(/[:.]/g, '-')}.${fileExtension}`;
+        
+        // Create a full-screen overlay that sits above everything else
+        // Important: Use a unique ID to avoid conflicts with existing elements
+        const overlayId = 'ios-video-download-overlay';
+        let overlay = document.getElementById(overlayId);
+        
+        // Remove any existing overlay first to prevent duplicates
+        if (overlay) {
+            overlay.remove();
+        }
+        
+        overlay = document.createElement('div');
+        overlay.id = overlayId;
+        overlay.style.position = 'fixed';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.width = '100%';
+        overlay.style.height = '100%';
+        overlay.style.backgroundColor = 'rgba(0,0,0,0.95)';
+        overlay.style.zIndex = '99999999'; // Extremely high z-index to ensure it's on top
+        overlay.style.display = 'flex';
+        overlay.style.alignItems = 'center';
+        overlay.style.justifyContent = 'center';
+        
+        // Create a clean, modern UI container with better visibility
+        overlay.innerHTML = `
+            <div style="background:white; width:90%; max-width:600px; border-radius:12px; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.3); position:relative; z-index:9999999;">
+                <!-- Header - UGA Red color -->
+                <div style="background:#BA0C2F; color:white; padding:15px 20px; display:flex; justify-content:space-between; align-items:center;">
+                    <h2 style="margin:0; font-size:18px; font-family:Arial,sans-serif;">Your Video is Ready</h2>
+                    <button id="close-overlay-btn" style="background:transparent; border:none; color:white; font-size:22px; cursor:pointer; padding:0 5px;">×</button>
+                </div>
+                
+                <!-- Instructions with numbered steps -->
+                <div style="padding:20px; border-bottom:1px solid #eee; font-family:Arial,sans-serif;">
+                    <div style="display:flex; align-items:center; margin-bottom:15px;">
+                        <div style="min-width:40px; height:40px; background:#BA0C2F; color:white; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-right:15px; font-weight:bold;">1</div>
+                        <p style="margin:0; font-size:16px;">Tap and hold on the video below</p>
+                    </div>
+                    <div style="display:flex; align-items:center; margin-bottom:15px;">
+                        <div style="min-width:40px; height:40px; background:#BA0C2F; color:white; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-right:15px; font-weight:bold;">2</div>
+                        <p style="margin:0; font-size:16px;">Select "Download Video" or "Save Video"</p>
+                    </div>
+                    <div style="display:flex; align-items:center;">
+                        <div style="min-width:40px; height:40px; background:#BA0C2F; color:white; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-right:15px; font-weight:bold;">3</div>
+                        <p style="margin:0; font-size:16px;">Your video will be saved to your device</p>
+                    </div>
+                </div>
+                
+                <!-- Video player with attention-grabbing border - clearly marked TAP AND HOLD HERE -->
+                <div style="padding:20px; position:relative; text-align:center;">
+                    <div style="border:2px dashed #BA0C2F; padding:8px; border-radius:8px; position:relative; overflow:hidden;">
+                        <div style="position:absolute; top:-12px; left:50%; transform:translateX(-50%); background:white; padding:0 10px; color:#BA0C2F; font-weight:bold; font-family:Arial,sans-serif; z-index:2;">TAP AND HOLD HERE</div>
+                        
+                        <!-- Animated tap hint overlay that pulses -->
+                        <div id="tap-hint-overlay" style="position:absolute; top:0; left:0; right:0; bottom:0; background:rgba(186,12,47,0.1); z-index:1; pointer-events:none; animation:tapPulse 2s infinite;"></div>
+                        
+                        <video controls style="width:100%; display:block; border-radius:4px; position:relative; z-index:1;">
+                            <source src="${url}" type="video/${fileExtension}">
+                            Your browser does not support the video tag.
+                        </video>
+                    </div>
+                    <p style="text-align:center; margin-top:15px; color:#666; font-size:14px; font-family:Arial,sans-serif;">Filename: ${filename}</p>
+                </div>
+                
+                <!-- Bottom controls - improved for iOS -->
+                <div style="padding:15px 20px; background:#f5f5f5; text-align:center; font-family:Arial,sans-serif;">
+                    <button id="remind-later-btn" style="background:#666; color:white; border:none; padding:10px 20px; border-radius:4px; margin-right:10px; cursor:pointer; font-family:Arial,sans-serif;">Remind me later</button>
+                    <button id="direct-link-btn" style="background:#BA0C2F; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer; font-family:Arial,sans-serif;">Try Direct Link</button>
+                </div>
+            </div>
+        `;
+        
+        // Append to document body
+        document.body.appendChild(overlay);
+        
+        // Add the animation style
+        const animationStyle = document.createElement('style');
+        animationStyle.innerHTML = `
+            @keyframes tapPulse {
+                0% { opacity: 0; }
+                50% { opacity: 0.5; }
+                100% { opacity: 0; }
+            }
+            
+            @keyframes pulseAttention {
+                0% { box-shadow: 0 0 0 0 rgba(186, 12, 47, 0.7); }
+                70% { box-shadow: 0 0 0 10px rgba(186, 12, 47, 0); }
+                100% { box-shadow: 0 0 0 0 rgba(186, 12, 47, 0); }
+            }
+            
+            #${overlayId} video {
+                animation: pulseAttention 2s infinite;
+            }
+        `;
+        document.head.appendChild(animationStyle);
+        
+        // Set up event listeners
+        document.getElementById('close-overlay-btn').addEventListener('click', function() {
+            overlay.remove();
+            animationStyle.remove();
+        });
+        
+        document.getElementById('remind-later-btn').addEventListener('click', function() {
+            overlay.remove();
+            animationStyle.remove();
+            
+            // Show a small floating reminder button that can reopen the overlay
+            const reminderBtn = document.createElement('div');
+            reminderBtn.style.position = 'fixed';
+            reminderBtn.style.bottom = '20px';
+            reminderBtn.style.right = '20px';
+            reminderBtn.style.backgroundColor = '#BA0C2F';
+            reminderBtn.style.color = 'white';
+            reminderBtn.style.padding = '12px';
+            reminderBtn.style.borderRadius = '50%';
+            reminderBtn.style.boxShadow = '0 2px 10px rgba(0,0,0,0.3)';
+            reminderBtn.style.cursor = 'pointer';
+            reminderBtn.style.zIndex = '999999';
+            reminderBtn.style.width = '50px';
+            reminderBtn.style.height = '50px';
+            reminderBtn.style.display = 'flex';
+            reminderBtn.style.alignItems = 'center';
+            reminderBtn.style.justifyContent = 'center';
+            reminderBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>';
+            
+            reminderBtn.addEventListener('click', function() {
+                // Re-create the overlay when the reminder button is clicked
+                const newUrl = URL.createObjectURL(blob);
+                const handleSafariDownloadFn = window.UnityVideoRecorder.handleSafariDownload.bind(window.UnityVideoRecorder);
+                handleSafariDownloadFn(blob, fileExtension);
+                reminderBtn.remove();
+            });
+            
+            document.body.appendChild(reminderBtn);
+        });
+        
+        document.getElementById('direct-link-btn').addEventListener('click', function() {
+            // Create and open a direct link
+            // This may work on some iOS devices/versions
+            window.location.href = url;
+            
+            // Show a timeout message after 3 seconds if the user is still here
+            setTimeout(function() {
+                const directLinkBtn = document.getElementById('direct-link-btn');
+                if (directLinkBtn) {
+                    directLinkBtn.textContent = "Continue with manual download";
+                    directLinkBtn.style.backgroundColor = "#4CAF50";
+                }
+            }, 3000);
+        });
+        
+        // Auto-play the video
+        const videoElement = overlay.querySelector('video');
+        if (videoElement) {
+            videoElement.play().catch(e => console.log("Auto-play prevented:", e));
         }
     },
     
@@ -536,159 +791,6 @@ window.UnityVideoRecorder = {
             URL.revokeObjectURL(url);
         }, 100);
     },
-    
-    // Updated handleSafariDownload function for improved iOS video download
-
-handleSafariDownload: function(blob, fileExtension) {
-    const url = URL.createObjectURL(blob);
-    const filename = `simulation-views-${new Date().toISOString().replace(/[:.]/g, '-')}.${fileExtension}`;
-    
-    // Create a full-screen overlay that sits above everything else
-    const overlay = document.createElement('div');
-    overlay.id = 'video-download-overlay';
-    overlay.style.position = 'fixed';
-    overlay.style.top = '0';
-    overlay.style.left = '0';
-    overlay.style.width = '100%';
-    overlay.style.height = '100%';
-    overlay.style.backgroundColor = 'rgba(0,0,0,0.95)';
-    overlay.style.zIndex = '99999999'; // Extremely high z-index to ensure it's on top
-    overlay.style.display = 'flex';
-    overlay.style.alignItems = 'center';
-    overlay.style.justifyContent = 'center';
-    
-    // Create a clean, modern UI container
-    overlay.innerHTML = `
-        <div style="background:white; width:90%; max-width:600px; border-radius:12px; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.3); position:relative; z-index:9999999;">
-            <!-- Header - UGA Red color -->
-            <div style="background:#BA0C2F; color:white; padding:15px 20px; display:flex; justify-content:space-between; align-items:center;">
-                <h2 style="margin:0; font-size:18px; font-family:Arial,sans-serif;">Your Video is Ready</h2>
-                <button id="close-overlay-btn" style="background:transparent; border:none; color:white; font-size:22px; cursor:pointer; padding:0 5px;">×</button>
-            </div>
-            
-            <!-- Instructions with numbered steps -->
-            <div style="padding:20px; border-bottom:1px solid #eee; font-family:Arial,sans-serif;">
-                <div style="display:flex; align-items:center; margin-bottom:15px;">
-                    <div style="min-width:40px; height:40px; background:#BA0C2F; color:white; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-right:15px; font-weight:bold;">1</div>
-                    <p style="margin:0; font-size:16px;">Tap and hold on the video below</p>
-                </div>
-                <div style="display:flex; align-items:center; margin-bottom:15px;">
-                    <div style="min-width:40px; height:40px; background:#BA0C2F; color:white; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-right:15px; font-weight:bold;">2</div>
-                    <p style="margin:0; font-size:16px;">Select "Download Video" or "Save Video"</p>
-                </div>
-                <div style="display:flex; align-items:center;">
-                    <div style="min-width:40px; height:40px; background:#BA0C2F; color:white; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-right:15px; font-weight:bold;">3</div>
-                    <p style="margin:0; font-size:16px;">Your video will be saved to your device</p>
-                </div>
-            </div>
-            
-            <!-- Video player with attention-grabbing border - clearly marked TAP AND HOLD HERE -->
-            <div style="padding:20px; position:relative; text-align:center;">
-                <div style="border:2px dashed #BA0C2F; padding:8px; border-radius:8px; position:relative; overflow:hidden;">
-                    <div style="position:absolute; top:-12px; left:50%; transform:translateX(-50%); background:white; padding:0 10px; color:#BA0C2F; font-weight:bold; font-family:Arial,sans-serif; z-index:2;">TAP AND HOLD HERE</div>
-                    
-                    <!-- Animated tap hint overlay that pulses -->
-                    <div id="tap-hint-overlay" style="position:absolute; top:0; left:0; right:0; bottom:0; background:rgba(186,12,47,0.1); z-index:1; pointer-events:none; animation:tapPulse 2s infinite;"></div>
-                    
-                    <video controls style="width:100%; display:block; border-radius:4px; position:relative; z-index:1;">
-                        <source src="${url}" type="video/${fileExtension}">
-                        Your browser does not support the video tag.
-                    </video>
-                </div>
-                <p style="text-align:center; margin-top:15px; color:#666; font-size:14px; font-family:Arial,sans-serif;">Filename: ${filename}</p>
-            </div>
-            
-            <!-- Bottom controls - improved for iOS -->
-            <div style="padding:15px 20px; background:#f5f5f5; text-align:center; font-family:Arial,sans-serif;">
-                <button id="remind-later-btn" style="background:#666; color:white; border:none; padding:10px 20px; border-radius:4px; margin-right:10px; cursor:pointer; font-family:Arial,sans-serif;">Remind me later</button>
-                <button id="direct-link-btn" style="background:#BA0C2F; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer; font-family:Arial,sans-serif;">Try Direct Link</button>
-            </div>
-        </div>
-    `;
-    
-    // Append to document body
-    document.body.appendChild(overlay);
-    
-    // Add the animation style
-    const animationStyle = document.createElement('style');
-    animationStyle.innerHTML = `
-        @keyframes tapPulse {
-            0% { opacity: 0; }
-            50% { opacity: 0.5; }
-            100% { opacity: 0; }
-        }
-        
-        @keyframes pulseAttention {
-            0% { box-shadow: 0 0 0 0 rgba(186, 12, 47, 0.7); }
-            70% { box-shadow: 0 0 0 10px rgba(186, 12, 47, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(186, 12, 47, 0); }
-        }
-        
-        #video-download-overlay video {
-            animation: pulseAttention 2s infinite;
-        }
-    `;
-    document.head.appendChild(animationStyle);
-    
-    // Set up event listeners
-    document.getElementById('close-overlay-btn').addEventListener('click', function() {
-        overlay.remove();
-        animationStyle.remove();
-    });
-    
-    document.getElementById('remind-later-btn').addEventListener('click', function() {
-        overlay.remove();
-        animationStyle.remove();
-        
-        // Show a small floating reminder button that can reopen the overlay
-        const reminderBtn = document.createElement('div');
-        reminderBtn.style.position = 'fixed';
-        reminderBtn.style.bottom = '20px';
-        reminderBtn.style.right = '20px';
-        reminderBtn.style.backgroundColor = '#BA0C2F';
-        reminderBtn.style.color = 'white';
-        reminderBtn.style.padding = '12px';
-        reminderBtn.style.borderRadius = '50%';
-        reminderBtn.style.boxShadow = '0 2px 10px rgba(0,0,0,0.3)';
-        reminderBtn.style.cursor = 'pointer';
-        reminderBtn.style.zIndex = '999999';
-        reminderBtn.style.width = '50px';
-        reminderBtn.style.height = '50px';
-        reminderBtn.style.display = 'flex';
-        reminderBtn.style.alignItems = 'center';
-        reminderBtn.style.justifyContent = 'center';
-        reminderBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>';
-        
-        reminderBtn.addEventListener('click', function() {
-            document.body.appendChild(overlay);
-            document.head.appendChild(animationStyle);
-            reminderBtn.remove();
-        });
-        
-        document.body.appendChild(reminderBtn);
-    });
-    
-    document.getElementById('direct-link-btn').addEventListener('click', function() {
-        // Create and open a direct link
-        // This may work on some iOS devices/versions
-        window.location.href = url;
-        
-        // Show a timeout message after 3 seconds if the user is still here
-        setTimeout(function() {
-            const directLinkBtn = document.getElementById('direct-link-btn');
-            if (directLinkBtn) {
-                directLinkBtn.textContent = "Continue with manual download";
-                directLinkBtn.style.backgroundColor = "#4CAF50";
-            }
-        }, 3000);
-    });
-    
-    // Auto-play the video
-    const videoElement = overlay.querySelector('video');
-    if (videoElement) {
-        videoElement.play().catch(e => console.log("Auto-play prevented:", e));
-    }
-},
     
     // Method to download recordings
     downloadAllRecordings: function() {
