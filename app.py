@@ -100,6 +100,17 @@ def stop_capture():
     result = stop_screenshot_capture()
     return jsonify(result)
 
+@app.route('/static/js/UnityVideoRecorder.js')
+def serve_video_recorder_js():
+    """Serve the UnityVideoRecorder.js file"""
+    return send_from_directory('static/js', 'UnityVideoRecorder.js')
+
+# If using a custom FindGameObjects script to help locate GameManager
+@app.route('/static/js/FindGameObjects.js')
+def serve_find_gameobjects_js():
+    """Serve the FindGameObjects.js helper file"""
+    return send_from_directory('static/js', 'FindGameObjects.js')
+
 @app.route('/download-screenshots', methods=['GET'])
 def download_screenshots():
     """Download all captured screenshots as a ZIP file"""
@@ -124,9 +135,9 @@ def health_check():
     except Exception as e:
         return jsonify({"status": "unhealthy", "error": str(e)}), 500
 
-if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=5000, debug=True)
+# if __name__ == '__main__':
+#     app.run(host="0.0.0.0", port=5000, debug=True)
 
 
 #  For production with gunicorn
-# app.config['PROPAGATE_EXCEPTIONS'] = True
+app.config['PROPAGATE_EXCEPTIONS'] = True

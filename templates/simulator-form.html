@@ -1246,13 +1246,13 @@
                         input.value = this.value;
                     }
                     highlightValue(input);
-                    updateConfigDisplay();
+                    // updateConfigDisplay();
                 });
                 
                 input.addEventListener('input', function() {
                     slider.value = this.value;
                     highlightValue(this);
-                    updateConfigDisplay();
+                    // updateConfigDisplay();
                 });
             }
             
@@ -1285,14 +1285,14 @@
                     if (radio) radio.checked = true;
                     
                     // Update configuration display
-                    updateConfigDisplay();
+                    // updateConfigDisplay();
                 });
             });
             
             // Shape count handlers
             shapeCountInputs.forEach(input => {
                 input.addEventListener('change', function() {
-                    updateConfigDisplay();
+                    // updateConfigDisplay();
                 });
                 
                 // Add subtle animation to count input when focused
@@ -1491,7 +1491,8 @@
             };
 
             lastStartedConfiguration = formData;
-            updateConfigDisplayFromStartedConfig();
+            updateConfigDisplay();
+            // updateConfigDisplayFromStartedConfig();
             
             // Show loading state for the button
             const startButton = document.getElementById('startButton');

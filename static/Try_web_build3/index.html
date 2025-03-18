@@ -5,17 +5,21 @@
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta name="viewport" content="width=device-width, height=device-height, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
-    <title>4D Platform Simulator | VibrationPlatformSimulator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <title>4D Printing Simulator</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
-            --primary: #BA0C2F;
-            --primary-dark: #98041F;
-            --primary-light: #F8E9EC;
-            --accent: #F5BD1F;
-            --dark: #1E293B;
+            --primary: #BA0C2F; /* UGA Red */
+            --primary-dark: #98041F; /* Darker UGA Red */
+            --primary-light: #F8E9EC; /* Light Red */
+            --accent: #000000; /* UGA Black */
+            --dark: #131A2A;
+            --darker: #0D1422;
             --light-gray: #F8FAFC;
-            --border-radius: 12px;
+            --border-radius: 6px;
         }
         
         * {
@@ -30,7 +34,7 @@
             height: 100%;
             overflow: hidden;
             position: fixed;
-            background: #1E293B;
+            background: var(--darker);
             touch-action: none;
         }
 
@@ -38,24 +42,128 @@
             width: 100%;
             height: 100%;
             position: absolute;
-            background: #1E293B;
+            background: var(--darker);
+            overflow: hidden !important;
+        }
+        
+        #header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 60px;
+            background: linear-gradient(90deg, #000000 0%, #1A1A1A 100%); /* Black gradient */
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 24px;
+            border-bottom: 2px solid #BA0C2F; /* UGA Red border */
+            z-index: 10;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+        }
+        
+        #title {
+            color: white;
+            font-size: 22px;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            position: relative;
+            padding-left: 16px;
+            display: flex;
+            align-items: center;
+        }
+        
+        #title::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 4px;
+            height: 24px;
+            background-color: #BA0C2F; /* UGA Red */
+            border-radius: 2px;
+        }
+        
+        #controls {
+            display: flex;
+            gap: 12px;
+        }
+        
+        .control-button {
+            background-color: rgba(255, 255, 255, 0.1);
+            border: none;
+            border-radius: 8px;
+            color: white;
+            padding: 8px 16px;
+            font-size: 14px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .control-button:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+        
+        .control-button:active {
+            transform: translateY(1px);
+        }
+        
+        #pause-button {
+            background-color: #BA0C2F; /* UGA Red */
+            border: none;
+        }
+        
+        #pause-button:hover {
+            background-color: #98041F; /* Darker UGA Red */
+            box-shadow: 0 4px 8px rgba(186, 12, 47, 0.4);
+        }
+        
+        #stop-button, #fullscreen-button {
+            background-color: rgba(255, 255, 255, 0.1);
+            border: none;
+        }
+        
+        #stop-button:hover, #fullscreen-button:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+        
+        .button-icon {
+            width: 16px;
+            height: 16px;
         }
 
         #unity-canvas-container {
-            width: 100%;
-            height: 100%;
-            position: absolute;
-            display: flex;
-            justify-content: center;
-            align-items: center;
+          width: 100%;
+          height: calc(100% - 60px);
+          position: absolute;
+          top: 60px;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          background: var(--darker) !important;
+          overflow: hidden !important;
+          margin: 0 !important;
+          padding: 0 !important;
         }
 
         #unity-canvas {
-            position: absolute;
-            width: 100%;
-            height: 100%;
-            background: #1E293B;
-            object-fit: contain;
+          position: absolute;
+          width: 100% !important;
+          height: 100% !important;
+          top: 0 !important;
+          left: 0 !important;
+          margin: 0 !important;
+          padding: 0 !important;
+          background: var(--darker) !important;
+          object-fit: contain !important;
         }
 
         #unity-loading-bar {
@@ -106,272 +214,881 @@
             text-align: center;
             z-index: 999;
         }
+
+        #status-indicator {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background-color: rgba(0, 0, 0, 0.7);
+            border-radius: 20px;
+            padding: 8px 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            z-index: 10;
+            color: white;
+            font-size: 14px;
+        }
+        
+        .indicator-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #10B981;
+            display: inline-block;
+        }
+        
+        /* Screenshot UI elements */
+        #screenshot-button {
+            position: absolute;
+            top: 70px;
+            left: 20px;
+            z-index: 100;
+            background-color: #BA0C2F; /* UGA Red */
+        }
+        
+        #screenshot-button:hover {
+            background-color: #98041F; /* Darker UGA Red */
+        }
+        
+        #download-all-button {
+            position: absolute;
+            top: 70px;
+            right: 20px;
+            z-index: 100;
+            background-color: #BA0C2F; /* UGA Red */
+            display: none;
+        }
+        
+        #download-all-button:hover {
+            background-color: #98041F; /* Darker UGA Red */
+        }
+        
+        #screenshot-status {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background-color: rgba(0, 0, 0, 0.7);
+            border-radius: 20px;
+            padding: 8px 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            z-index: 10;
+            color: white;
+            font-size: 14px;
+        }
+        
+        #screenshot-status .indicator-dot {
+            background-color: #BA0C2F; /* UGA Red */
+        }
+        
+        /* Responsive adjustments */
+        @media screen and (max-width: 640px) {
+            #title {
+                font-size: 16px;
+                padding-left: 12px;
+            }
+            
+            #title::before {
+                height: 18px;
+                width: 3px;
+            }
+            
+            .control-button {
+                padding: 6px 10px;
+                font-size: 13px;
+            }
+            
+            .button-icon {
+                width: 14px;
+                height: 14px;
+            }
+            
+            #header {
+                padding: 0 10px;
+                height: 50px;
+            }
+            
+            #unity-canvas-container {
+                height: calc(100% - 50px);
+                top: 50px;
+            }
+            
+            #controls {
+                gap: 6px;
+            }
+            
+            #screenshot-button {
+                top: 60px;
+                left: 10px;
+            }
+            
+            #download-all-button {
+                top: 60px;
+                right: 10px;
+            }
+        }
     </style>
   </head>
   <body>
     <div id="unity-container" class="unity-desktop">
+      <div id="header">
+        <h1 id="title">4D Printing Simulator</h1>
+        <div id="controls">
+          <button id="pause-button" class="control-button">
+            <svg class="button-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="6" y="4" width="4" height="16"></rect>
+              <rect x="14" y="4" width="4" height="16"></rect>
+            </svg>
+            Pause
+          </button>
+          <button id="stop-button" class="control-button">
+            <svg class="button-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <rect x="4" y="4" width="16" height="16" rx="2" ry="2"></rect>
+            </svg>
+            Stop
+          </button>
+          <button id="fullscreen-button" class="control-button">
+            <svg class="button-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path>
+            </svg>
+            Fullscreen
+          </button>
+        </div>
+      </div>
+      
       <div id="unity-canvas-container">
         <canvas id="unity-canvas" tabindex="-1"></canvas>
       </div>
+      
       <div id="unity-loading-bar">
         <div id="unity-logo"></div>
         <div id="unity-progress-bar-empty">
           <div id="unity-progress-bar-full"></div>
         </div>
       </div>
+      
       <div id="unity-warning"></div>
+      
+      <div id="status-indicator">
+        <span class="indicator-dot"></span>
+        <span id="status-text">Initializing...</span>
+      </div>
+      
+      <!-- Screenshot UI elements -->
+      <button id="screenshot-button" class="control-button">
+        <svg class="button-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+          <circle cx="12" cy="13" r="4"></circle>
+        </svg>
+        Take Screenshot
+      </button>
+      
+      <button id="download-all-button" class="control-button">
+        <svg class="button-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        Download All Screenshots
+      </button>
+      
+      <div id="screenshot-status">
+        <span class="indicator-dot"></span>
+        <span id="screenshot-text">Screenshots: 0</span>
+      </div>
     </div>
     <script>
       var container = document.querySelector("#unity-container");
-      var canvas = document.querySelector("#unity-canvas");
-      var loadingBar = document.querySelector("#unity-loading-bar");
-      var progressBarFull = document.querySelector("#unity-progress-bar-full");
-      var warning = document.querySelector("#unity-warning");
-      var gameInstance = null; // Will store Unity game instance
-      var isIframe = window !== window.parent;
+var canvas = document.querySelector("#unity-canvas");
+var loadingBar = document.querySelector("#unity-loading-bar");
+var progressBarFull = document.querySelector("#unity-progress-bar-full");
+var warning = document.querySelector("#unity-warning");
+var statusIndicator = document.querySelector("#status-indicator");
+var statusText = document.querySelector("#status-text");
+var statusDot = document.querySelector(".indicator-dot");
+var gameInstance = null; // Will store Unity game instance
+var isIframe = window !== window.parent;
+var isPaused = false;
+
+let screenshotCount = 0;
+const screenshots = [];
+let currentGameManagerName = ''; // Store the current game manager name
+
+// Function to capture screenshot directly from Unity
+function captureUnityScreenshot() {
+  try {
+    const screenshotButton = document.getElementById('screenshot-button');
+    if (screenshotButton) {
+      // Show capturing feedback
+      screenshotButton.innerHTML = `
+        <svg class="button-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 16 14"></polyline>
+        </svg>
+        Capturing...
+      `;
+      screenshotButton.style.backgroundColor = '#333333';
+    }
+
+    // Check if Unity instance exists
+    if (gameInstance && currentGameManagerName) {
+      // Use Unity's built-in screenshot functionality
+      try {
+        // This will call a function in your Unity GameManager to take a screenshot
+        gameInstance.SendMessage(currentGameManagerName, 'TakeScreenshot');
         
-      function unityShowBanner(msg, type) {
-        function updateBannerVisibility() {
-          warning.style.display = warning.children.length ? 'block' : 'none';
-        }
-        var div = document.createElement('div');
-        div.innerHTML = msg;
-        warning.appendChild(div);
-        if (type == 'error') div.style = 'background: rgba(200, 0, 0, 0.8); padding: 10px;';
-        else {
-          if (type == 'warning') div.style = 'background: rgba(200, 200, 0, 0.8); padding: 10px;';
-          setTimeout(function() {
-            warning.removeChild(div);
-            updateBannerVisibility();
-          }, 5000);
-        }
-        updateBannerVisibility();
-      }
-
-      function updateCanvasSize() {
-        var windowWidth = window.innerWidth;
-        var windowHeight = window.innerHeight;
-        var targetAspectRatio = 16 / 9;
-        var currentAspectRatio = windowWidth / windowHeight;
-        var canvasWidth, canvasHeight;
-
-        if (currentAspectRatio > targetAspectRatio) {
-            canvasHeight = windowHeight;
-            canvasWidth = windowHeight * targetAspectRatio;
-        } else {
-            canvasWidth = windowWidth;
-            canvasHeight = windowWidth / targetAspectRatio;
-        }
-
-        canvas.style.width = canvasWidth + 'px';
-        canvas.style.height = canvasHeight + 'px';
-        canvas.style.top = ((windowHeight - canvasHeight) / 2) + 'px';
-        canvas.style.left = ((windowWidth - canvasWidth) / 2) + 'px';
-      }
-
-      var buildUrl = "/game/Build";
-      var loaderUrl = buildUrl + "/Try_web_build.loader.js";
-      var config = {
-        dataUrl: buildUrl + "/Try_web_build.data",
-        frameworkUrl: buildUrl + "/Try_web_build.framework.js",
-        codeUrl: buildUrl + "/Try_web_build.wasm",
-        streamingAssetsUrl: "/game/StreamingAssets",
-        companyName: "DefaultCompany",
-        productName: "VibrationPlatformSimulator",
-        productVersion: "0.1",
-        showBanner: unityShowBanner,
-      };
-
-      // Device detection and optimization
-      if (/iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
-        // Mobile device optimizations
-        container.className = "unity-mobile";
-        
-        // Optimize for mobile performance
-        config.devicePixelRatio = Math.min(window.devicePixelRatio, 2);
-        
-        // Prevent unwanted touch behaviors
-        document.addEventListener('touchmove', function(e) {
-            e.preventDefault();
-        }, { passive: false });
-      }
-
-      loadingBar.style.display = "block";
-
-      var script = document.createElement("script");
-      script.src = loaderUrl;
-      script.onload = () => {
-        createUnityInstance(canvas, config, (progress) => {
-          progressBarFull.style.width = 100 * progress + "%";
-        }).then((unityInstance) => {
-          gameInstance = unityInstance; // Store reference for later use
-          loadingBar.style.display = "none";
-          
-          // Notify parent that Unity is ready
-          if (isIframe && window.parent) {
-            window.parent.postMessage({ 
-              type: 'unityReady',
-              message: 'Unity WebGL application is ready'
-            }, '*');
-          }
-          
-          // Fetch simulation parameters to initialize Unity
-          fetchSimulationParameters();
-          
-        }).catch((message) => {
-          console.error("Error loading Unity application:", message);
-          if (isIframe && window.parent) {
-            window.parent.postMessage({ 
-              type: 'unityError',
-              message: message
-            }, '*');
-          }
-        });
-      };
-
-      document.body.appendChild(script);
-      
-      // Function to fetch simulation parameters from server
-      function fetchSimulationParameters() {
-        fetch('/get-data')
-          .then(response => response.json())
-          .then(data => {
-            console.log("Received simulation parameters:", data);
-            if (gameInstance) {
-              try {
-                // Send parameters to Unity's GameManager
-                gameInstance.SendMessage('GameManager', 'SetSimulationParameters', JSON.stringify(data));
-                
-                // Auto-start the simulation after parameters are set
-                setTimeout(() => {
-                  gameInstance.SendMessage('GameManager', 'StartSimulation');
-                  
-                  // Notify parent that simulation has started
-                  if (isIframe && window.parent) {
-                    window.parent.postMessage({ 
-                      type: 'simulationStatus',
-                      status: 'running'
-                    }, '*');
-                  }
-                }, 500);
-              } catch (error) {
-                console.error("Error sending parameters to Unity:", error);
-                
-                if (isIframe && window.parent) {
-                  window.parent.postMessage({ 
-                    type: 'simulationError',
-                    message: error.toString()
-                  }, '*');
-                }
-              }
-            }
-          })
-          .catch(error => {
-            console.error("Error fetching simulation parameters:", error);
-            
-            if (isIframe && window.parent) {
-              window.parent.postMessage({ 
-                type: 'simulationError',
-                message: 'Failed to fetch simulation parameters: ' + error.toString()
-              }, '*');
-            }
+        // The Unity side will need to call back to JS with the screenshot data
+        // We'll set up a global function to receive this
+        window.receiveUnityScreenshot = function(base64Image) {
+          // Store the screenshot
+          screenshotCount++;
+          const timestamp = new Date().toISOString();
+          screenshots.push({
+            id: `screenshot_${timestamp.replace(/[:.]/g, '')}_${screenshotCount}`,
+            data: "data:image/png;base64," + base64Image,
+            timestamp: timestamp
           });
+          
+          // Update UI
+          updateScreenshotStatus();
+          
+          // Reset button
+          if (screenshotButton) {
+            screenshotButton.innerHTML = `
+              <svg class="button-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+                <circle cx="12" cy="13" r="4"></circle>
+              </svg>
+              Take Screenshot
+            `;
+            screenshotButton.style.backgroundColor = '#BA0C2F';
+          }
+          
+          console.log("Screenshot captured successfully from Unity");
+        };
+        
+        return; // Exit function after sending the message to Unity
+      } catch (error) {
+        console.warn("Error using Unity screenshot method, falling back to canvas capture:", error);
+      }
+    }
+
+    // Fallback if Unity method fails or is not available - try to get the canvas directly
+    const unityCanvas = document.getElementById('unity-canvas');
+    if (unityCanvas) {
+      try {
+        // Try to capture directly from the WebGL canvas
+        const screenshot = unityCanvas.toDataURL('image/png');
+        
+        // Store the screenshot
+        screenshotCount++;
+        const timestamp = new Date().toISOString();
+        screenshots.push({
+          id: `screenshot_${timestamp.replace(/[:.]/g, '')}_${screenshotCount}`,
+          data: screenshot,
+          timestamp: timestamp
+        });
+        
+        // Update UI
+        updateScreenshotStatus();
+        
+        console.log("Screenshot captured directly from Unity canvas");
+      } catch (e) {
+        console.error("Canvas capture failed due to security restrictions:", e);
+        // Final fallback - use html2canvas with warning
+        fallbackHtml2Canvas();
+      }
+    } else {
+      console.error("Unity canvas not found");
+      fallbackHtml2Canvas();
+    }
+    
+    // Reset button
+    if (screenshotButton) {
+      screenshotButton.innerHTML = `
+        <svg class="button-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+          <circle cx="12" cy="13" r="4"></circle>
+        </svg>
+        Take Screenshot
+      `;
+      screenshotButton.style.backgroundColor = '#BA0C2F';
+    }
+  } catch (error) {
+    console.error('Error in screenshot function:', error);
+    
+    // Reset button
+    const screenshotButton = document.getElementById('screenshot-button');
+    if (screenshotButton) {
+      screenshotButton.innerHTML = `
+        <svg class="button-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
+          <circle cx="12" cy="13" r="4"></circle>
+        </svg>
+        Take Screenshot
+      `;
+      screenshotButton.style.backgroundColor = '#BA0C2F';
+    }
+  }
+}
+
+// Fallback to html2canvas if direct methods fail
+function fallbackHtml2Canvas() {
+  console.log("Using html2canvas fallback");
+  html2canvas(document.getElementById('unity-container'), {
+    useCORS: true,
+    allowTaint: true,
+    backgroundColor: "#0D1422",
+    scale: window.devicePixelRatio || 1,
+    logging: false
+  }).then(canvas => {
+    const screenshotData = canvas.toDataURL('image/png');
+    
+    // Store the screenshot
+    screenshotCount++;
+    const timestamp = new Date().toISOString();
+    screenshots.push({
+      id: `screenshot_${timestamp.replace(/[:.]/g, '')}_${screenshotCount}`,
+      data: screenshotData,
+      timestamp: timestamp
+    });
+    
+    // Update UI
+    updateScreenshotStatus();
+    
+    console.log("Screenshot captured with html2canvas fallback");
+  }).catch(err => {
+    console.error("All screenshot methods failed:", err);
+  });
+}
+
+// Take a screenshot when the simulation is stopped
+async function takeScreenshotOnStop() {
+  // Try to capture screenshot using the same approach as the regular screenshot
+  captureUnityScreenshot();
+  
+  // Show download button after a small delay to ensure the screenshot is completed
+  setTimeout(() => {
+    const downloadButton = document.getElementById('download-all-button');
+    if (downloadButton && screenshots.length > 0) {
+      downloadButton.style.display = 'flex';
+    }
+  }, 1000);
+}
+
+// Initialize when the page loads
+document.addEventListener('DOMContentLoaded', function() {
+  // Hide download button initially
+  const downloadBtn = document.getElementById('download-all-button');
+  if (downloadBtn) {
+    downloadBtn.style.display = 'none';
+    downloadBtn.addEventListener('click', downloadAllScreenshots);
+  }
+  
+  // Setup screenshot button
+  const screenshotBtn = document.getElementById('screenshot-button');
+  if (screenshotBtn) {
+    screenshotBtn.addEventListener('click', captureUnityScreenshot);
+  }
+  
+  // Mobile-friendly touch handlers if needed
+  if ('ontouchstart' in window) {
+    if (downloadBtn) {
+      downloadBtn.addEventListener('touchend', downloadAllScreenshots);
+    }
+    if (screenshotBtn) {
+      screenshotBtn.addEventListener('touchend', captureUnityScreenshot);
+    }
+  }
+});
+
+// Update the screenshot count display
+function updateScreenshotStatus() {
+  const screenshotTextElement = document.getElementById('screenshot-text');
+  if (screenshotTextElement) {
+    screenshotTextElement.textContent = `Screenshots: ${screenshotCount}`;
+  }
+}
+
+// Download all screenshots as a zip file
+async function downloadAllScreenshots() {
+  try {
+    if (screenshots.length === 0) {
+      alert('No screenshots available to download');
+      return;
+    }
+    
+    const downloadButton = document.getElementById('download-all-button');
+    if (downloadButton) {
+      downloadButton.innerHTML = `
+        <svg class="button-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 16 14"></polyline>
+        </svg>
+        Preparing...
+      `;
+      downloadButton.style.backgroundColor = '#333333'; // Darker color
+    }
+    
+    // Create a new zip file
+    const zip = new JSZip();
+    
+    // Add each screenshot to the zip
+    screenshots.forEach(screenshot => {
+      // Convert data URL to blob
+      const imageData = screenshot.data.split(',')[1];
+      const byteCharacters = atob(imageData);
+      const byteNumbers = new Array(byteCharacters.length);
+      
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
       }
       
-      // Listen for messages from parent iframe
-      window.addEventListener('message', function(event) {
-        // Only process messages if from parent
-        if (event.source === window.parent) {
-            const data = event.data;
-            
-            // Process simulation control commands
-            if (data.type === 'simulationControl' && gameInstance) {
-                console.log("Received control command:", data.command);
-                
-                try {
-                    switch(data.command) {
-                        case 'start':
-                            gameInstance.SendMessage('GameManager', 'StartSimulation');
-                            notifyParent('running');
-                            break;
-                        case 'pause':
-                            gameInstance.SendMessage('GameManager', 'PauseSimulation');
-                            notifyParent('paused');
-                            break;
-                        case 'resume':
-                            gameInstance.SendMessage('GameManager', 'ResumeSimulation');
-                            notifyParent('running');
-                            break;
-                        case 'stop':
-                            gameInstance.SendMessage('GameManager', 'StopSimulation');
-                            notifyParent('stopped');
-                            break;
-                        case 'reset':
-                            gameInstance.SendMessage('GameManager', 'ResetSimulation');
-                            notifyParent('ready');
-                            break;
-                    }
-                } catch (error) {
-                    console.error("Error sending command to Unity:", error);
-                    
-                    if (isIframe && window.parent) {
-                      window.parent.postMessage({ 
-                        type: 'simulationError',
-                        message: 'Error executing command: ' + error.toString()
-                      }, '*');
-                    }
-                }
-            }
-        }
-      });
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: 'image/png' });
       
-      // Helper function to notify parent of status changes
-      function notifyParent(status) {
-        if (isIframe && window.parent) {
-          window.parent.postMessage({ 
-            type: 'simulationStatus',
-            status: status
-          }, '*');
-        }
+      // Add file to zip
+      zip.file(`${screenshot.id}.png`, blob);
+    });
+    
+    // Generate the zip file
+    const zipContent = await zip.generateAsync({ type: 'blob' });
+    
+    // Download zip file using FileSaver.js
+    saveAs(zipContent, `4d-printing-screenshots-${new Date().toISOString().slice(0, 10)}.zip`);
+    
+    // Reset button
+    if (downloadButton) {
+      downloadButton.innerHTML = `
+        <svg class="button-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        Download All Screenshots
+      `;
+      downloadButton.style.backgroundColor = '#BA0C2F'; // UGA Red
+    }
+  } catch (error) {
+    console.error('Error creating zip file:', error);
+    alert('Error preparing screenshots for download. See console for details.');
+    
+    // Reset button on error
+    const downloadButton = document.getElementById('download-all-button');
+    if (downloadButton) {
+      downloadButton.innerHTML = `
+        <svg class="button-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        Download All Screenshots
+      `;
+      downloadButton.style.backgroundColor = '#BA0C2F'; // UGA Red
+    }
+  }
+}
+    
+function unityShowBanner(msg, type) {
+  function updateBannerVisibility() {
+    warning.style.display = warning.children.length ? 'block' : 'none';
+  }
+  var div = document.createElement('div');
+  div.innerHTML = msg;
+  warning.appendChild(div);
+  if (type == 'error') div.style = 'background: rgba(200, 0, 0, 0.8); padding: 10px;';
+  else {
+    if (type == 'warning') div.style = 'background: rgba(200, 200, 0, 0.8); padding: 10px;';
+    setTimeout(function() {
+      warning.removeChild(div);
+      updateBannerVisibility();
+    }, 5000);
+  }
+  updateBannerVisibility();
+}
+
+function updateCanvasSize() {
+  var windowWidth = window.innerWidth;
+  var windowHeight = window.innerHeight - document.getElementById('header').offsetHeight;
+  
+  // Set canvas to fill the entire available area
+  canvas.style.width = "100%";
+  canvas.style.height = "100%";
+  canvas.style.top = "0";
+  canvas.style.left = "0";
+  
+  // Remove any additional padding or margins
+  document.getElementById('unity-canvas-container').style.padding = "0";
+  document.getElementById('unity-canvas-container').style.margin = "0";
+  
+  // Ensure correct background color
+  canvas.style.backgroundColor = "#0D1422";
+  document.getElementById('unity-canvas-container').style.backgroundColor = "#0D1422";
+}
+
+function updateStatus(status) {
+  if (!statusText || !statusDot) return;
+  
+  statusText.textContent = status;
+  
+  // Update dot color based on status
+  switch (status) {
+    case "Running":
+      statusDot.style.backgroundColor = "#10B981"; // Green
+      break;
+    case "Paused":
+      statusDot.style.backgroundColor = "#F59E0B"; // Amber
+      break;
+    case "Stopped":
+      statusDot.style.backgroundColor = "#EF4444"; // Red
+      break;
+    case "Initializing...":
+      statusDot.style.backgroundColor = "#BA0C2F"; // UGA Red
+      break;
+    default:
+      statusDot.style.backgroundColor = "#6B7280"; // Gray
+  }
+}
+
+var buildUrl = "/game/Build";
+var loaderUrl = buildUrl + "/Try_web_build.loader.js";
+var config = {
+  dataUrl: buildUrl + "/Try_web_build.data",
+  frameworkUrl: buildUrl + "/Try_web_build.framework.js",
+  codeUrl: buildUrl + "/Try_web_build.wasm",
+  streamingAssetsUrl: "/game/StreamingAssets",
+  companyName: "DefaultCompany",
+  productName: "VibrationPlatformSimulator",
+  productVersion: "0.1",
+  showBanner: unityShowBanner,
+};
+
+// Device detection and optimization
+if (/iPhone|iPad|iPod|Android|webOS|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+  // Mobile device optimizations
+  container.className = "unity-mobile";
+  
+  // Optimize for mobile performance
+  config.devicePixelRatio = Math.min(window.devicePixelRatio, 2);
+  
+  // Prevent unwanted touch behaviors
+  document.addEventListener('touchmove', function(e) {
+      e.preventDefault();
+  }, { passive: false });
+}
+
+// Update status to initializing
+updateStatus("Initializing...");
+
+loadingBar.style.display = "block";
+
+var script = document.createElement("script");
+script.src = loaderUrl;
+script.onload = () => {
+  createUnityInstance(canvas, config, (progress) => {
+    progressBarFull.style.width = 100 * progress + "%";
+  }).then((unityInstance) => {
+    gameInstance = unityInstance; // Store reference for later use
+    loadingBar.style.display = "none";
+    
+    // Wait a bit for Unity to initialize fully
+    setTimeout(() => {
+      console.log("Unity WebGL instance loaded successfully");
+      
+      // Find the correct GameManager GameObject
+      const gameManagerName = findGameManager(unityInstance);
+      console.log("Using GameObject name:", gameManagerName);
+      
+      // Set up control buttons with the correct GameObject name
+      setupControlButtons(unityInstance, gameManagerName);
+      
+      // Auto-start the simulation by fetching parameters
+      fetchSimulationParameters(unityInstance, gameManagerName);
+      
+      // Add a debug message to check if communication is working
+      try {
+        unityInstance.SendMessage(gameManagerName, 'CaptureCurrentState');
+        console.log("Test message sent to GameManager");
+        updateStatus("Running");
+      } catch (error) {
+        console.error("Error communicating with Unity:", error);
+        updateStatus("Error");
       }
+    }, 1000); // Wait 1 second for Unity to initialize fully
+    
+  }).catch((message) => {
+    console.error("Error loading Unity application:", message);
+    unityShowBanner("Failed to load simulation: " + message, "error");
+    updateStatus("Error");
+  });
+};
 
-      // Handle resize and orientation changes
-      window.addEventListener('resize', updateCanvasSize);
-      window.addEventListener('orientationchange', function() {
-        setTimeout(updateCanvasSize, 100);
-      });
+document.body.appendChild(script);
 
-      // Initial size setup
-      updateCanvasSize();
+// Function to find the correct GameManager object
+function findGameManager(unityInstance) {
+  // Try different possible GameObject names
+  const possibleNames = [
+    'GameManger',            // Common typo/variant (without 'a')
+    'GameManager',           // Direct name
+    'MyGameNamespace.GameManger', // With namespace (without 'a')
+    'MyGameNamespace.GameManager', // With namespace
+    '/GameManger',           // Root path (without 'a')
+    '/GameManager',          // Root path
+    'GameController',        // Alternative name
+    'SimulationManager',     // Alternative name
+    'Game Manager'           // With space
+  ];
+  
+  // Also try to find by tag
+  try {
+    unityInstance.SendMessage('GameObject', 'FindGameObjectWithTag', 'GameManager');
+    console.log("Attempting to find by tag");
+  } catch (e) {
+    console.log("FindGameObjectWithTag not supported");
+  }
+  
+  // Log all root GameObjects to console for debugging
+  try {
+    console.log("Checking for available Unity GameObjects...");
+    unityInstance.SendMessage('GameObject', 'LogAllRootObjects');
+  } catch (e) {
+    console.log("Cannot log root objects");
+  }
+  
+  // Test each possible name
+  for (const name of possibleNames) {
+    try {
+      console.log(`Testing GameObject name: ${name}`);
+      unityInstance.SendMessage(name, 'TestMessageReceived');
+      console.log(`Found valid GameObject: ${name}`);
+      currentGameManagerName = name; // Store for screenshot use
+      return name;
+    } catch (e) {
+      console.log(`Cannot find GameObject: ${name}`);
+    }
+  }
+  
+  // Default fallback to the name you mentioned
+  console.log("Using GameManger (without 'a') as fallback");
+  currentGameManagerName = 'GameManger'; // Store for screenshot use
+  return 'GameManger';
+}
 
-      // Handle visibility changes
-      document.addEventListener('visibilitychange', function() {
-        if (document.hidden) {
-            // Pause game or reduce performance
-            if (gameInstance) {
-                try {
-                    gameInstance.SendMessage('GameManager', 'OnApplicationPause', true);
-                } catch (e) { 
-                    console.log("Could not pause Unity game:", e);
-                }
-            }
+// Set up control buttons to communicate with Unity
+function setupControlButtons(unityInstance, gameManagerName) {
+  // Pause/Resume button
+  const pauseButton = document.getElementById('pause-button');
+  pauseButton.addEventListener('click', function() {
+    if (unityInstance) {
+      try {
+        // Directly set simulation state variables
+        if (!isPaused) {
+          // Pause the simulation
+          unityInstance.SendMessage(gameManagerName, 'pauseF', 'true');
+          unityInstance.SendMessage(gameManagerName, 'prevStateF', 'true');
+          unityInstance.SendMessage(gameManagerName, 'timesStateSetF', 'true');
+          updateStatus("Paused");
         } else {
-            // Resume game
-            updateCanvasSize();
-            if (gameInstance) {
-                try {
-                    gameInstance.SendMessage('GameManager', 'OnApplicationPause', false);
-                } catch (e) {
-                    console.log("Could not resume Unity game:", e);
-                }
-            }
+          // Resume the simulation
+          unityInstance.SendMessage(gameManagerName, 'pauseF', 'false');
+          unityInstance.SendMessage(gameManagerName, 'prevStateF', 'false');
+          unityInstance.SendMessage(gameManagerName, 'timesStateSetF', 'true');
+          updateStatus("Running");
         }
-      });
+        
+        // Also call the handler for UI updates
+        unityInstance.SendMessage(gameManagerName, 'HandlePauseButton');
+        
+        // Update local state
+        isPaused = !isPaused;
+        pauseButton.innerHTML = isPaused ? 
+          '<svg class="button-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg> Resume' : 
+          '<svg class="button-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect></svg> Pause';
+        
+        console.log(isPaused ? 'Simulation paused' : 'Simulation resumed');
+      } catch (error) {
+        console.error("Error pausing simulation:", error);
+      }
+    }
+  });
+  
+  // Stop button
+  const stopButton = document.getElementById('stop-button');
+  stopButton.addEventListener('click', function() {
+    if (unityInstance) {
+      try {
+        // Set simulation state variables
+        unityInstance.SendMessage(gameManagerName, 'pauseF', 'true');
+        unityInstance.SendMessage(gameManagerName, 'prevStateF', 'true');
+        unityInstance.SendMessage(gameManagerName, 'timesStateSetF', 'true');
+        unityInstance.SendMessage(gameManagerName, 'simulationRunning', 'false');
+        
+        // Call the handler for UI updates
+        unityInstance.SendMessage(gameManagerName, 'HandleStopButton');
+        
+        // Update local state
+        isPaused = true;
+        
+        // Hide pause button and screenshot button
+        pauseButton.style.display = 'none';
+        const screenshotButton = document.getElementById('screenshot-button');
+        if (screenshotButton) {
+          screenshotButton.style.display = 'none';
+        }
+        
+        // Disable stop button
+        stopButton.disabled = true;
+        
+        // Take a screenshot and show download button
+        takeScreenshotOnStop();
+        
+        updateStatus("Stopped");
+        console.log('Simulation stopped');
+      } catch (error) {
+        console.error("Error stopping simulation:", error);
+      }
+    }
+  });
+  
+  // Fullscreen button
+  const fullscreenButton = document.getElementById('fullscreen-button');
+  fullscreenButton.addEventListener('click', function() {
+    if (unityInstance) {
+      try {
+        unityInstance.SendMessage(gameManagerName, 'HandleFullscreenButton');
+        console.log('Fullscreen toggled');
+        
+        // Also use browser fullscreen API as fallback
+        toggleFullscreen();
+      } catch (error) {
+        console.error("Error toggling fullscreen:", error);
+        
+        // Use browser fullscreen as fallback
+        toggleFullscreen();
+      }
+    } else {
+      // Use browser fullscreen if Unity isn't loaded
+      toggleFullscreen();
+    }
+  });
+}
 
-      // Prevent pinch zoom on mobile
-      document.addEventListener('gesturestart', function(e) {
-        e.preventDefault();
-      });
+// Browser fullscreen API handling
+function toggleFullscreen() {
+  if (!document.fullscreenElement) {
+    if (document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen();
+    } else if (document.documentElement.webkitRequestFullscreen) {
+      document.documentElement.webkitRequestFullscreen();
+    } else if (document.documentElement.msRequestFullscreen) {
+      document.documentElement.msRequestFullscreen();
+    }
+  } else {
+    if (document.exitFullscreen) {
+      document.exitFullscreen();
+    } else if (document.webkitExitFullscreen) {
+      document.webkitExitFullscreen();
+    } else if (document.msExitFullscreen) {
+      document.msExitFullscreen();
+    }
+  }
+}
+
+// Function to fetch simulation parameters from server
+function fetchSimulationParameters(unityInstance, gameManagerName) {
+  fetch('/get-data')
+    .then(response => response.json())
+    .then(data => {
+      console.log("Received simulation parameters:", data);
+      if (unityInstance) {
+        try {
+          // Set individual parameters directly based on the C# GameManager fields
+          // This ensures proper value types (int vs float) are set correctly
+          unityInstance.SendMessage(gameManagerName, 'Spring_const', data.SC.toString());
+          unityInstance.SendMessage(gameManagerName, 'bond_break_F', data.BF.toString());
+          unityInstance.SendMessage(gameManagerName, 'Amplitude_X', data.AmpX.toString());
+          unityInstance.SendMessage(gameManagerName, 'Amplitude_Y', data.AmpY.toString());
+          unityInstance.SendMessage(gameManagerName, 'Amplitude_Z', data.AmpZ.toString());
+          unityInstance.SendMessage(gameManagerName, 'Frequency_X', data.freqX.toString());
+          unityInstance.SendMessage(gameManagerName, 'Frequency_Y', data.freqY.toString());
+          unityInstance.SendMessage(gameManagerName, 'Frequency_Z', data.freqZ.toString());
+          unityInstance.SendMessage(gameManagerName, 'sphere_count', data.sphereCount.toString());
+          unityInstance.SendMessage(gameManagerName, 'rectangle_Count', data.rectangleCount.toString());
+          unityInstance.SendMessage(gameManagerName, 'quartersphere_Count', data.quartersphereCount.toString());
+          unityInstance.SendMessage(gameManagerName, 'Airfoil_count', (data.airfoilCount || 0).toString());
+          unityInstance.SendMessage(gameManagerName, 'halfsphere_Count', (data.halfsphereCount || 0).toString());
+          unityInstance.SendMessage(gameManagerName, 'pyramid_Count', (data.pyramidCount || 0).toString());
+          
+          // Set readyForControlParameters flag
+          unityInstance.SendMessage(gameManagerName, 'readyForControlParameters', 'true');
+          
+          // Set simulation running flag
+          setTimeout(() => {
+            // This is important - need to activate simulation controller
+            unityInstance.SendMessage(gameManagerName, 'simulationRunning', 'true');
+            
+            // Make sure simulation is actually running
+            // These three flags need to be set in this specific order to work correctly
+            // First set the pause state
+            unityInstance.SendMessage(gameManagerName, 'pauseF', 'false');
+            // Then set the previous state (which is compared in Update())
+            unityInstance.SendMessage(gameManagerName, 'prevStateF', 'false');
+            // Finally set the flag that triggers the update in Update()
+            unityInstance.SendMessage(gameManagerName, 'timesStateSetF', 'true');
+            
+            console.log("Simulation parameters set and simulation started");
+            updateStatus("Running");
+          }, 1000);
+        } catch (error) {
+          console.error("Error sending parameters to Unity:", error);
+          unityShowBanner("Error configuring simulation: " + error, "error");
+          updateStatus("Error");
+        }
+      }
+    })
+    .catch(error => {
+      console.error("Error fetching simulation parameters:", error);
+      unityShowBanner("Failed to fetch simulation data: " + error, "error");
+      updateStatus("Error");
+    });
+}
+
+// Handle resize and orientation changes
+window.addEventListener('resize', updateCanvasSize);
+window.addEventListener('orientationchange', function() {
+  setTimeout(updateCanvasSize, 100);
+});
+
+// Initial size setup
+updateCanvasSize();
+
+// Handle visibility changes (pause when tab is not visible)
+document.addEventListener('visibilitychange', function() {
+  if (gameInstance) {
+    if (document.hidden) {
+      try {
+        gameInstance.SendMessage('GameManger', 'OnApplicationPause', 'true');
+      } catch (e) { 
+        console.log("Could not pause Unity game:", e);
+      }
+    } else {
+      updateCanvasSize();
+      try {
+        gameInstance.SendMessage('GameManger', 'OnApplicationPause', 'false');
+      } catch (e) {
+        console.log("Could not resume Unity game:", e);
+      }
+    }
+  }
+});
+
+// Prevent pinch zoom on mobile
+document.addEventListener('gesturestart', function(e) {
+  e.preventDefault();
+});
     </script>
   </body>
 </html>
