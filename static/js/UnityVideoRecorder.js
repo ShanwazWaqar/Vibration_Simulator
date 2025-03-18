@@ -42,108 +42,200 @@ window.UnityVideoRecorder = {
         return null;
     },
     
+    // Check if the browser is Safari or iOS
+    isIOSorSafari: function() {
+        const userAgent = navigator.userAgent.toLowerCase();
+        const isSafari = /^((?!chrome|android).)*safari/i.test(userAgent);
+        const isIOS = /iphone|ipad|ipod/.test(userAgent);
+        return isSafari || isIOS;
+    },
+    
+    // Show a pre-recording notice for iOS users
+    showIOSPreRecordingNotice: function(callback) {
+        if (!this.isIOSorSafari()) {
+            // Not iOS or Safari, proceed immediately
+            callback();
+            return;
+        }
+        
+        // Create a modal dialog
+        const modal = document.createElement('div');
+        modal.style.position = 'fixed';
+        modal.style.top = '0';
+        modal.style.left = '0';
+        modal.style.width = '100%';
+        modal.style.height = '100%';
+        modal.style.backgroundColor = 'rgba(0,0,0,0.7)';
+        modal.style.zIndex = '99999';
+        modal.style.display = 'flex';
+        modal.style.alignItems = 'center';
+        modal.style.justifyContent = 'center';
+        
+        modal.innerHTML = `
+            <div style="background:white; width:90%; max-width:500px; border-radius:10px; overflow:hidden;">
+                <div style="background:#f44336; color:white; padding:15px; text-align:center;">
+                    <h2 style="margin:0; font-size:18px;">iOS Recording Notice</h2>
+                </div>
+                <div style="padding:20px;">
+                    <p style="margin-top:0;">Since you're using an iOS device, please note:</p>
+                    <ul style="padding-left:20px; margin-bottom:20px;">
+                        <li>After recording, you'll need to manually save the video</li>
+                        <li>We'll show you clear instructions when the recording is complete</li>
+                        <li>You'll need to tap and hold on the video to save it</li>
+                    </ul>
+                    <div style="text-align:center;">
+                        <button id="ios-notice-continue" style="background:#f44336; color:white; border:none; padding:10px 25px; border-radius:5px; font-size:16px; cursor:pointer;">
+                            Continue to Recording
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // Set up continue button
+        document.getElementById('ios-notice-continue').addEventListener('click', function() {
+            modal.remove();
+            callback();
+        });
+    },
+    
     // Called by Unity to start recording
     startRecording: function(jsonData) {
+        const self = this;
+        
         try {
             console.log("UnityVideoRecorder: Starting recording...");
             
-            // Parse recording info from Unity
-            const info = JSON.parse(jsonData);
-            this.recordingInfo = info;
-            
-            if (!info.viewCount || info.viewCount < 1) {
-                console.error("Invalid view count", info);
-                alert("Recording failed: Invalid camera configuration");
-                return;
-            }
-            
-            console.log(`Found ${info.viewCount} camera views to record`);
-            
-            // Balanced quality settings
-            const viewWidth = Math.min(info.width, 720); 
-            const viewHeight = Math.min(info.height, 480);
-            
-            // 2+1 layout (2 views on left stacked vertically, 1 view on right taking full height)
-            this.combinedWidth = viewWidth * 2;
-            this.combinedHeight = viewHeight * 2;
-            
-            console.log(`Creating recording canvas: ${this.combinedWidth}x${this.combinedHeight}`);
-            
-            // Create canvas for the combined view
-            this.recordingCanvas = document.createElement('canvas');
-            this.recordingCanvas.width = this.combinedWidth;
-            this.recordingCanvas.height = this.combinedHeight;
-            this.recordingCtx = this.recordingCanvas.getContext('2d');
-            
-            // Fill with black background
-            this.recordingCtx.fillStyle = 'black';
-            this.recordingCtx.fillRect(0, 0, this.combinedWidth, this.combinedHeight);
-            
-            // Draw placeholders for each view
-            this.drawViewPlaceholders(viewWidth, viewHeight);
-            
-            // Create a stream from the canvas
-            const stream = this.recordingCanvas.captureStream(20); // Balanced 20fps
-            
-            // Get supported MIME type
-            const mimeType = this.getSupportedMimeType();
-            
-            // Set recorder options based on browser support
-            const recorderOptions = {};
-            
-            if (mimeType) {
-                recorderOptions.mimeType = mimeType;
-                recorderOptions.videoBitsPerSecond = 3000000; // 3Mbps
-            } else {
-                // If no specified mime type is supported, use browser defaults
-                console.log("Using browser default encoding settings");
-            }
-            
-            try {
-                // Create a media recorder with appropriate settings
-                this.recorder = new MediaRecorder(stream, recorderOptions);
-            } catch (e) {
-                console.error("Failed to create MediaRecorder with options. Trying with defaults:", e);
-                // Fallback to default options
-                this.recorder = new MediaRecorder(stream);
-            }
-            
-            // Store recorded chunks
-            this.chunks = [];
-            this.recorder.ondataavailable = (e) => {
-                if (e.data.size > 0) {
-                    this.chunks.push(e.data);
+            // Show iOS notice if needed, then proceed
+            this.showIOSPreRecordingNotice(function() {
+                try {
+                    // Parse recording info from Unity
+                    const info = JSON.parse(jsonData);
+                    self.recordingInfo = info;
+                    
+                    if (!info.viewCount || info.viewCount < 1) {
+                        console.error("Invalid view count", info);
+                        alert("Recording failed: Invalid camera configuration");
+                        return;
+                    }
+                    
+                    console.log(`Found ${info.viewCount} camera views to record`);
+                    
+                    // Balanced quality settings
+                    const viewWidth = Math.min(info.width, 720); 
+                    const viewHeight = Math.min(info.height, 480);
+                    
+                    // 2+1 layout (2 views on left stacked vertically, 1 view on right taking full height)
+                    self.combinedWidth = viewWidth * 2;
+                    self.combinedHeight = viewHeight * 2;
+                    
+                    console.log(`Creating recording canvas: ${self.combinedWidth}x${self.combinedHeight}`);
+                    
+                    // Create canvas for the combined view
+                    self.recordingCanvas = document.createElement('canvas');
+                    self.recordingCanvas.width = self.combinedWidth;
+                    self.recordingCanvas.height = self.combinedHeight;
+                    self.recordingCtx = self.recordingCanvas.getContext('2d');
+                    
+                    // Fill with black background
+                    self.recordingCtx.fillStyle = 'black';
+                    self.recordingCtx.fillRect(0, 0, self.combinedWidth, self.combinedHeight);
+                    
+                    // Draw placeholders for each view
+                    self.drawViewPlaceholders(viewWidth, viewHeight);
+                    
+                    // Create a stream from the canvas
+                    const stream = self.recordingCanvas.captureStream(20); // Balanced 20fps
+                    
+                    // Get supported MIME type
+                    const mimeType = self.getSupportedMimeType();
+                    
+                    // Set recorder options based on browser support
+                    const recorderOptions = {};
+                    
+                    if (mimeType) {
+                        recorderOptions.mimeType = mimeType;
+                        recorderOptions.videoBitsPerSecond = 3000000; // 3Mbps
+                    } else {
+                        // If no specified mime type is supported, use browser defaults
+                        console.log("Using browser default encoding settings");
+                    }
+                    
+                    try {
+                        // Create a media recorder with appropriate settings
+                        self.recorder = new MediaRecorder(stream, recorderOptions);
+                    } catch (e) {
+                        console.error("Failed to create MediaRecorder with options. Trying with defaults:", e);
+                        // Fallback to default options
+                        self.recorder = new MediaRecorder(stream);
+                    }
+                    
+                    // Store recorded chunks
+                    self.chunks = [];
+                    self.recorder.ondataavailable = (e) => {
+                        if (e.data.size > 0) {
+                            self.chunks.push(e.data);
+                        }
+                    };
+                    
+                    // Start recording
+                    self.recorder.start(1000); // Collect data every second
+                    
+                    // Reset state
+                    self.frameBuffer = [];
+                    self.processingQueue = [];
+                    self.isProcessing = false;
+                    self.isRecording = true;
+                    self.recordingStartTime = Date.now();
+                    self.frameCounter = 0;
+                    self.lastFrameTimes = {}; // Reset frame times
+                    self.frameImages = {}; // Reset stored frames
+                    
+                    // Show recording indicator
+                    const recordingIndicator = document.getElementById('recording-indicator');
+                    if (recordingIndicator) {
+                        recordingIndicator.classList.add('active');
+                    }
+                    
+                    // Remember canvas info for later use
+                    self.viewCount = info.viewCount;
+                    self.viewWidth = viewWidth;
+                    self.viewHeight = viewHeight;
+                    
+                    console.log("Recording started with cross-platform settings");
+                    
+                    // Setup a regular redraw interval to ensure all views stay visible
+                    self.redrawInterval = setInterval(() => self.redrawAllViews(), 100);
+                    
+                    // For iOS users, display a small recording indicator with download instructions
+                    if (self.isIOSorSafari()) {
+                        const iosIndicator = document.createElement('div');
+                        iosIndicator.id = 'ios-recording-indicator';
+                        iosIndicator.style.position = 'fixed';
+                        iosIndicator.style.top = '10px';
+                        iosIndicator.style.right = '10px';
+                        iosIndicator.style.background = 'rgba(244, 67, 54, 0.9)';
+                        iosIndicator.style.color = 'white';
+                        iosIndicator.style.padding = '8px 12px';
+                        iosIndicator.style.borderRadius = '5px';
+                        iosIndicator.style.fontSize = '14px';
+                        iosIndicator.style.zIndex = '9997';
+                        iosIndicator.style.display = 'flex';
+                        iosIndicator.style.alignItems = 'center';
+                        iosIndicator.style.boxShadow = '0 2px 5px rgba(0,0,0,0.3)';
+                        iosIndicator.innerHTML = `
+                            <span style="display:inline-block; width:10px; height:10px; background:white; border-radius:50%; margin-right:8px;"></span>
+                            <span>Recording... (iOS compatible)</span>
+                        `;
+                        document.body.appendChild(iosIndicator);
+                    }
+                } catch (error) {
+                    console.error('Error in recording callback:', error);
+                    alert("Failed to start recording: " + error.message);
                 }
-            };
-            
-            // Start recording
-            this.recorder.start(1000); // Collect data every second
-            
-            // Reset state
-            this.frameBuffer = [];
-            this.processingQueue = [];
-            this.isProcessing = false;
-            this.isRecording = true;
-            this.recordingStartTime = Date.now();
-            this.frameCounter = 0;
-            this.lastFrameTimes = {}; // Reset frame times
-            this.frameImages = {}; // Reset stored frames
-            
-            // Show recording indicator
-            const recordingIndicator = document.getElementById('recording-indicator');
-            if (recordingIndicator) {
-                recordingIndicator.classList.add('active');
-            }
-            
-            // Remember canvas info for later use
-            this.viewCount = info.viewCount;
-            this.viewWidth = viewWidth;
-            this.viewHeight = viewHeight;
-            
-            console.log("Recording started with cross-platform settings");
-            
-            // Setup a regular redraw interval to ensure all views stay visible
-            this.redrawInterval = setInterval(() => this.redrawAllViews(), 100);
+            });
         } catch (error) {
             console.error('Error starting recording:', error);
             alert("Failed to start recording: " + error.message);
@@ -376,10 +468,16 @@ window.UnityVideoRecorder = {
         const recordingDuration = (Date.now() - this.recordingStartTime) / 1000;
         console.log(`Recording duration: ${recordingDuration.toFixed(2)} seconds`);
         
-        // Hide recording indicator
+        // Hide recording indicators
         const recordingIndicator = document.getElementById('recording-indicator');
         if (recordingIndicator) {
             recordingIndicator.classList.remove('active');
+        }
+        
+        // Remove iOS-specific indicator if present
+        const iosIndicator = document.getElementById('ios-recording-indicator');
+        if (iosIndicator) {
+            iosIndicator.remove();
         }
         
         // Stop the recorder after processing remaining frames
@@ -443,14 +541,6 @@ window.UnityVideoRecorder = {
         }
     },
     
-    // Check if the browser is Safari or iOS
-    isIOSorSafari: function() {
-        const userAgent = navigator.userAgent.toLowerCase();
-        const isSafari = /^((?!chrome|android).)*safari/i.test(userAgent);
-        const isIOS = /iphone|ipad|ipod/.test(userAgent);
-        return isSafari || isIOS;
-    },
-    
     // Standard download for Chrome/Firefox/etc
     standardDownload: function(blob, fileExtension) {
         const url = URL.createObjectURL(blob);
@@ -468,111 +558,141 @@ window.UnityVideoRecorder = {
         }, 100);
     },
     
-    // Special handling for Safari/iOS
+    // Improved handling for Safari/iOS
     handleSafariDownload: function(blob, fileExtension) {
         const url = URL.createObjectURL(blob);
+        const filename = `simulation-views-${new Date().toISOString().replace(/[:.]/g, '-')}.${fileExtension}`;
         
-        // For iOS Safari, we open the video in a new window
-        // The user can then save it manually
-        const newWindow = window.open();
-        if (newWindow) {
-            newWindow.document.write(`
-                <html>
-                <head>
-                    <title>Download Recorded Video</title>
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <style>
-                        body { 
-                            font-family: Arial, sans-serif;
-                            text-align: center;
-                            padding: 20px;
-                            background-color: #f5f5f5;
-                        }
-                        h1 { color: #333; }
-                        .container {
-                            max-width: 800px;
-                            margin: 0 auto;
-                            background-color: white;
-                            padding: 20px;
-                            border-radius: 10px;
-                            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-                        }
-                        video {
-                            max-width: 100%;
-                            margin: 20px 0;
-                            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-                        }
-                        .instructions {
-                            background-color: #f8f9fa;
-                            padding: 15px;
-                            border-radius: 5px;
-                            margin: 20px 0;
-                            text-align: left;
-                        }
-                        .instructions li {
-                            margin-bottom: 10px;
-                        }
-                    </style>
-                </head>
-                <body>
-                    <div class="container">
-                        <h1>Your Video is Ready</h1>
-                        <p>Since you're using Safari/iOS, please follow these steps to save the video:</p>
-                        
-                        <video controls autoplay>
+        // Create an integrated download overlay within the main page
+        const overlay = document.createElement('div');
+        overlay.id = 'video-download-overlay';
+        overlay.style.position = 'fixed';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.width = '100%';
+        overlay.style.height = '100%';
+        overlay.style.backgroundColor = 'rgba(0,0,0,0.9)';
+        overlay.style.zIndex = '99999';
+        overlay.style.display = 'flex';
+        overlay.style.alignItems = 'center';
+        overlay.style.justifyContent = 'center';
+        
+        // Create a clean, modern UI container
+        overlay.innerHTML = `
+            <div style="background:white; width:90%; max-width:600px; border-radius:12px; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.3);">
+                <!-- Header -->
+                <div style="background:#f44336; color:white; padding:15px 20px; display:flex; justify-content:space-between; align-items:center;">
+                    <h2 style="margin:0; font-size:18px;">Your Video is Ready</h2>
+                    <button id="close-overlay-btn" style="background:transparent; border:none; color:white; font-size:22px; cursor:pointer; padding:0 5px;">×</button>
+                </div>
+                
+                <!-- Instructions with animation -->
+                <div style="padding:20px; border-bottom:1px solid #eee;">
+                    <div style="display:flex; align-items:center; margin-bottom:15px;">
+                        <div style="min-width:40px; height:40px; background:#f44336; color:white; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-right:15px; font-weight:bold;">1</div>
+                        <p style="margin:0; font-size:16px;">Tap and hold on the video below</p>
+                    </div>
+                    <div style="display:flex; align-items:center; margin-bottom:15px;">
+                        <div style="min-width:40px; height:40px; background:#f44336; color:white; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-right:15px; font-weight:bold;">2</div>
+                        <p style="margin:0; font-size:16px;">Select "Download Video" or "Save Video"</p>
+                    </div>
+                    <div style="display:flex; align-items:center;">
+                        <div style="min-width:40px; height:40px; background:#f44336; color:white; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-right:15px; font-weight:bold;">3</div>
+                        <p style="margin:0; font-size:16px;">Your video will be saved to your device</p>
+                    </div>
+                </div>
+                
+                <!-- Video player with attention-grabbing border -->
+                <div style="padding:20px; position:relative;">
+                    <div style="border:2px dashed #f44336; padding:8px; border-radius:8px; position:relative;">
+                        <div style="position:absolute; top:-12px; left:50%; transform:translateX(-50%); background:white; padding:0 10px; color:#f44336; font-weight:bold;">TAP AND HOLD HERE</div>
+                        <video controls style="width:100%; display:block; border-radius:4px; box-shadow:0 2px 8px rgba(0,0,0,0.1);">
                             <source src="${url}" type="video/${fileExtension}">
                             Your browser does not support the video tag.
                         </video>
-                        
-                        <div class="instructions">
-                            <strong>To save the video:</strong>
-                            <ol>
-                                <li>Tap and hold on the video above</li>
-                                <li>Select "Download Video" or "Save Video" from the menu</li>
-                                <li>The video will be saved to your device</li>
-                            </ol>
-                        </div>
-                        
-                        <p>Filename: simulation-views-${new Date().toISOString().replace(/[:.]/g, '-')}.${fileExtension}</p>
                     </div>
-                </body>
-                </html>
-            `);
-            newWindow.document.close();
-        } else {
-            // If popup is blocked, fall back to an alert with instructions
-            alert("Please enable popups to download the video, or long-press the video player and select 'Download Video'");
-            
-            // Create an element in the current page
-            const container = document.createElement('div');
-            container.style.position = 'fixed';
-            container.style.top = '0';
-            container.style.left = '0';
-            container.style.width = '100%';
-            container.style.height = '100%';
-            container.style.backgroundColor = 'rgba(0,0,0,0.8)';
-            container.style.zIndex = '9999';
-            container.style.display = 'flex';
-            container.style.flexDirection = 'column';
-            container.style.alignItems = 'center';
-            container.style.justifyContent = 'center';
-            container.style.padding = '20px';
-            container.style.boxSizing = 'border-box';
-            
-            container.innerHTML = `
-                <div style="background:white; max-width:800px; padding:20px; border-radius:10px; text-align:center;">
-                    <h2>Your Video is Ready</h2>
-                    <p>Tap and hold the video to save it:</p>
-                    <video controls style="max-width:100%; margin:10px 0;" src="${url}"></video>
-                    <button style="padding:10px 20px; background:#007bff; color:white; border:none; border-radius:5px; cursor:pointer;" onclick="this.parentNode.parentNode.remove()">Close</button>
+                    <p style="text-align:center; margin-top:15px; color:#666; font-size:14px;">Filename: ${filename}</p>
                 </div>
-            `;
+                
+                <!-- Bottom controls -->
+                <div style="padding:15px 20px; background:#f5f5f5; text-align:center;">
+                    <button id="remind-later-btn" style="background:#666; color:white; border:none; padding:10px 20px; border-radius:4px; margin-right:10px; cursor:pointer;">Remind me later</button>
+                    <button id="direct-link-btn" style="background:#f44336; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer;">Try Direct Link</button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(overlay);
+        
+        // Set up event listeners
+        document.getElementById('close-overlay-btn').addEventListener('click', function() {
+            document.getElementById('video-download-overlay').remove();
+        });
+        
+        document.getElementById('remind-later-btn').addEventListener('click', function() {
+            document.getElementById('video-download-overlay').remove();
             
-            document.body.appendChild(container);
+            // Show a small floating reminder button that can reopen the overlay
+            const reminderBtn = document.createElement('div');
+            reminderBtn.style.position = 'fixed';
+            reminderBtn.style.bottom = '20px';
+            reminderBtn.style.right = '20px';
+            reminderBtn.style.backgroundColor = '#f44336';
+            reminderBtn.style.color = 'white';
+            reminderBtn.style.padding = '12px';
+            reminderBtn.style.borderRadius = '50%';
+            reminderBtn.style.boxShadow = '0 2px 10px rgba(0,0,0,0.3)';
+            reminderBtn.style.cursor = 'pointer';
+            reminderBtn.style.zIndex = '9998';
+            reminderBtn.style.width = '50px';
+            reminderBtn.style.height = '50px';
+            reminderBtn.style.display = 'flex';
+            reminderBtn.style.alignItems = 'center';
+            reminderBtn.style.justifyContent = 'center';
+            reminderBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>';
+            
+            reminderBtn.addEventListener('click', function() {
+                document.body.appendChild(overlay);
+                reminderBtn.remove();
+            });
+            
+            document.body.appendChild(reminderBtn);
+        });
+        
+        document.getElementById('direct-link-btn').addEventListener('click', function() {
+            // Create and open a direct link
+            // This may work on some iOS devices/versions
+            window.location.href = url;
+            
+            // Show a timeout message after 3 seconds if the user is still here
+            setTimeout(function() {
+                const directLinkBtn = document.getElementById('direct-link-btn');
+                if (directLinkBtn) {
+                    directLinkBtn.textContent = "Continue with manual download";
+                    directLinkBtn.style.backgroundColor = "#4CAF50";
+                }
+            }, 3000);
+        });
+        
+        // Auto-play the video
+        const videoElement = overlay.querySelector('video');
+        if (videoElement) {
+            videoElement.play().catch(e => console.log("Auto-play prevented:", e));
         }
         
-        // Keep the URL object alive as we're showing it to the user
-        // The user needs to manually save it now
+        // Add a visual indication for where to tap with animation
+        const tapAnimation = document.createElement('style');
+        tapAnimation.textContent = `
+            @keyframes pulseAttention {
+                0% { box-shadow: 0 0 0 0 rgba(244, 67, 54, 0.7); }
+                70% { box-shadow: 0 0 0 10px rgba(244, 67, 54, 0); }
+                100% { box-shadow: 0 0 0 0 rgba(244, 67, 54, 0); }
+            }
+            #video-download-overlay video {
+                animation: pulseAttention 2s infinite;
+            }
+        `;
+        document.head.appendChild(tapAnimation);
     },
     
     // Method to download recordings
@@ -603,4 +723,4 @@ window.UnityVideoRecorder = {
             alert('No video recordings available to download');
         }
     }
-};
+}
