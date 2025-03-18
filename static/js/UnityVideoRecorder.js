@@ -1,4 +1,4 @@
-// UnityVideoRecorder.js - Cross-Browser Compatible Version
+// UnityVideoRecorder.js - Cross-Browser Compatible Version with iOS Fix
 // This version works on Chrome, Firefox, Safari (macOS and iOS)
 
 window.UnityVideoRecorder = {
@@ -50,6 +50,20 @@ window.UnityVideoRecorder = {
         return isSafari || isIOS;
     },
     
+    // Find the top-level window for displaying overlays
+    getTopWindow: function() {
+        try {
+            // Try to access parent window to see if we're in an iframe
+            if (window.parent && window.parent !== window && window.parent.document) {
+                console.log("Using parent window for overlays");
+                return window.parent;
+            }
+        } catch (e) {
+            console.log("Cannot access parent window, using current window", e);
+        }
+        return window;
+    },
+    
     // Show a pre-recording notice for iOS users
     showIOSPreRecordingNotice: function(callback) {
         if (!this.isIOSorSafari()) {
@@ -57,6 +71,8 @@ window.UnityVideoRecorder = {
             callback();
             return;
         }
+        
+        const topWindow = this.getTopWindow();
         
         // Create a modal dialog
         const modal = document.createElement('div');
@@ -66,7 +82,7 @@ window.UnityVideoRecorder = {
         modal.style.width = '100%';
         modal.style.height = '100%';
         modal.style.backgroundColor = 'rgba(0,0,0,0.7)';
-        modal.style.zIndex = '99999';
+        modal.style.zIndex = '2147483647'; // Max z-index
         modal.style.display = 'flex';
         modal.style.alignItems = 'center';
         modal.style.justifyContent = 'center';
@@ -92,10 +108,10 @@ window.UnityVideoRecorder = {
             </div>
         `;
         
-        document.body.appendChild(modal);
+        topWindow.document.body.appendChild(modal);
         
         // Set up continue button
-        document.getElementById('ios-notice-continue').addEventListener('click', function() {
+        topWindow.document.getElementById('ios-notice-continue').addEventListener('click', function() {
             modal.remove();
             callback();
         });
@@ -194,10 +210,7 @@ window.UnityVideoRecorder = {
                     self.frameImages = {}; // Reset stored frames
                     
                     // Show recording indicator
-                    const recordingIndicator = document.getElementById('recording-indicator');
-                    if (recordingIndicator) {
-                        recordingIndicator.classList.add('active');
-                    }
+                    self.showRecordingIndicator(true);
                     
                     // Remember canvas info for later use
                     self.viewCount = info.viewCount;
@@ -208,16 +221,42 @@ window.UnityVideoRecorder = {
                     
                     // Setup a regular redraw interval to ensure all views stay visible
                     self.redrawInterval = setInterval(() => self.redrawAllViews(), 100);
-                    
-                    // We removed the iOS indicator code here
                 } catch (error) {
                     console.error('Error in recording callback:', error);
-                    alert("Failed to start recording: " + error.message);
+                    self.showNotification("Failed to start recording: " + error.message, 3000);
                 }
             });
         } catch (error) {
             console.error('Error starting recording:', error);
-            alert("Failed to start recording: " + error.message);
+            this.showNotification("Failed to start recording: " + error.message, 3000);
+        }
+    },
+
+    // Show/hide recording indicator
+    showRecordingIndicator: function(isVisible) {
+        try {
+            // Try to find the indicator in both current window and parent window
+            let recordingIndicator = document.getElementById('recording-indicator');
+            
+            // If not found in current window, check parent window
+            if (!recordingIndicator && window.parent && window.parent !== window) {
+                try {
+                    recordingIndicator = window.parent.document.getElementById('recording-indicator');
+                } catch (e) {
+                    console.log("Cannot access parent window recording indicator");
+                }
+            }
+            
+            if (recordingIndicator) {
+                recordingIndicator.style.display = isVisible ? "flex" : "none";
+            }
+            
+            // Also call any global handler if it exists
+            if (typeof window.setRecordingActive === 'function') {
+                window.setRecordingActive(isVisible);
+            }
+        } catch (e) {
+            console.error("Error updating recording indicator:", e);
         }
     },
     
@@ -448,31 +487,16 @@ window.UnityVideoRecorder = {
         console.log(`Recording duration: ${recordingDuration.toFixed(2)} seconds`);
         
         // Hide recording indicators
-        const recordingIndicator = document.getElementById('recording-indicator');
-        if (recordingIndicator) {
-            recordingIndicator.classList.remove('active');
-        }
+        this.showRecordingIndicator(false);
         
-        // Remove iOS-specific indicator if present
-        const iosIndicator = document.getElementById('ios-recording-indicator');
-        if (iosIndicator) {
-            iosIndicator.remove();
-        }
-        
-        // Make sure notification container exists and is shown properly
-        this.ensureNotificationContainer();
-        
-        // Show processing message in notification container
-        if (this.isIOSorSafari()) {
-            this.showNotification("Processing video. Please wait...");
-        }
+        // Show processing message
+        this.showNotification("Processing video. Please wait...");
         
         // Stop the recorder after processing remaining frames
         if (this.recorder && this.recorder.state !== 'inactive') {
             this.recorder.onstop = () => {
                 try {
                     // Create blob from chunks
-                    // The type must match what we're recording with, or use a compatible format
                     let mimeType = 'video/webm';
                     
                     // Try to determine the MIME type from the recorder
@@ -492,12 +516,12 @@ window.UnityVideoRecorder = {
                         fileExtension = 'mov';
                     }
                     
+                    // Hide the notification
+                    this.hideNotification();
+                    
                     // For Safari/iOS special handling
                     if (this.isIOSorSafari()) {
                         console.log("iOS/Safari detected, using special download method");
-                        // Hide the notification first
-                        this.hideNotification();
-                        // Then show the download overlay
                         this.handleSafariDownload(blob, fileExtension);
                     } else {
                         // Standard download method for other browsers
@@ -511,7 +535,7 @@ window.UnityVideoRecorder = {
                     this.recorder = null;
                     this.frameImages = {};
                     
-                    console.log('Recording downloaded and resources cleaned up');
+                    console.log('Recording finalized and resources cleaned up');
                 } catch (err) {
                     console.error("Error finishing recording:", err);
                     this.showNotification("Error finishing recording: " + err.message, 3000);
@@ -530,14 +554,16 @@ window.UnityVideoRecorder = {
     
     // Add notification functionality for better user feedback
     ensureNotificationContainer: function() {
-        if (!document.getElementById('video-notification-container')) {
+        const topWindow = this.getTopWindow();
+        
+        if (!topWindow.document.getElementById('video-notification-container')) {
             const notificationContainer = document.createElement('div');
             notificationContainer.id = 'video-notification-container';
             notificationContainer.style.position = 'fixed';
             notificationContainer.style.top = '80px';
             notificationContainer.style.left = '50%';
             notificationContainer.style.transform = 'translateX(-50%)';
-            notificationContainer.style.zIndex = '1000000';
+            notificationContainer.style.zIndex = '2147483646'; // Very high z-index
             notificationContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.85)';
             notificationContainer.style.borderRadius = '8px';
             notificationContainer.style.padding = '16px 24px';
@@ -553,7 +579,7 @@ window.UnityVideoRecorder = {
             notificationContainer.style.visibility = 'hidden';
             
             notificationContainer.innerHTML = `
-                <div style="display: flex; align-items: center; color: white; font-family: 'Inter', sans-serif;">
+                <div style="display: flex; align-items: center; color: white; font-family: 'Inter', sans-serif, -apple-system, BlinkMacSystemFont;">
                     <div style="margin-right: 16px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
                         <svg viewBox="0 0 50 50" style="width: 32px; height: 32px; animation: spin 1.5s linear infinite;">
                             <circle cx="25" cy="25" r="20" fill="none" stroke="#ba0c2f" stroke-width="5" style="stroke-linecap: round; animation: dash 1.5s ease-in-out infinite;"></circle>
@@ -575,16 +601,17 @@ window.UnityVideoRecorder = {
                     100% { stroke-dasharray: 90, 150; stroke-dashoffset: -124; }
                 }
             `;
-            document.head.appendChild(styleSheet);
+            topWindow.document.head.appendChild(styleSheet);
             
-            document.body.appendChild(notificationContainer);
+            topWindow.document.body.appendChild(notificationContainer);
         }
     },
     
     showNotification: function(message, duration = 0) {
         this.ensureNotificationContainer();
-        const container = document.getElementById('video-notification-container');
-        const messageEl = document.getElementById('video-notification-message');
+        const topWindow = this.getTopWindow();
+        const container = topWindow.document.getElementById('video-notification-container');
+        const messageEl = topWindow.document.getElementById('video-notification-message');
         
         if (container && messageEl) {
             messageEl.textContent = message;
@@ -604,7 +631,8 @@ window.UnityVideoRecorder = {
     },
     
     hideNotification: function() {
-        const container = document.getElementById('video-notification-container');
+        const topWindow = this.getTopWindow();
+        const container = topWindow.document.getElementById('video-notification-container');
         if (container) {
             container.style.opacity = '0';
             container.style.visibility = 'hidden';
@@ -612,15 +640,17 @@ window.UnityVideoRecorder = {
         }
     },
     
-    // Improved handleSafariDownload function for better iOS experience
+    // Improved handleSafariDownload function for iOS/Safari devices
     handleSafariDownload: function(blob, fileExtension) {
         const url = URL.createObjectURL(blob);
         const filename = `simulation-views-${new Date().toISOString().replace(/[:.]/g, '-')}.${fileExtension}`;
         
+        // Get the top-level window to ensure overlay is visible
+        const topWindow = this.getTopWindow();
+        
         // Create a full-screen overlay that sits above everything else
-        // Important: Use a unique ID to avoid conflicts with existing elements
         const overlayId = 'ios-video-download-overlay';
-        let overlay = document.getElementById(overlayId);
+        let overlay = topWindow.document.getElementById(overlayId);
         
         // Remove any existing overlay first to prevent duplicates
         if (overlay) {
@@ -635,22 +665,22 @@ window.UnityVideoRecorder = {
         overlay.style.width = '100%';
         overlay.style.height = '100%';
         overlay.style.backgroundColor = 'rgba(0,0,0,0.95)';
-        overlay.style.zIndex = '99999999'; // Extremely high z-index to ensure it's on top
+        overlay.style.zIndex = '2147483647'; // Max z-index to ensure it's above everything
         overlay.style.display = 'flex';
         overlay.style.alignItems = 'center';
         overlay.style.justifyContent = 'center';
         
-        // Create a clean, modern UI container with better visibility
+        // Create a clean, modern UI container optimized for mobile
         overlay.innerHTML = `
-            <div style="background:white; width:90%; max-width:600px; border-radius:12px; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.3); position:relative; z-index:9999999;">
+            <div style="background:white; width:90%; max-width:600px; border-radius:12px; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.3); position:relative; z-index:2147483647;">
                 <!-- Header - UGA Red color -->
                 <div style="background:#BA0C2F; color:white; padding:15px 20px; display:flex; justify-content:space-between; align-items:center;">
-                    <h2 style="margin:0; font-size:18px; font-family:Arial,sans-serif;">Your Video is Ready</h2>
+                    <h2 style="margin:0; font-size:18px; font-family:Arial,sans-serif,-apple-system,BlinkMacSystemFont;">Your Video is Ready</h2>
                     <button id="close-overlay-btn" style="background:transparent; border:none; color:white; font-size:22px; cursor:pointer; padding:0 5px;">×</button>
                 </div>
                 
                 <!-- Instructions with numbered steps -->
-                <div style="padding:20px; border-bottom:1px solid #eee; font-family:Arial,sans-serif;">
+                <div style="padding:20px; border-bottom:1px solid #eee; font-family:Arial,sans-serif,-apple-system,BlinkMacSystemFont;">
                     <div style="display:flex; align-items:center; margin-bottom:15px;">
                         <div style="min-width:40px; height:40px; background:#BA0C2F; color:white; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-right:15px; font-weight:bold;">1</div>
                         <p style="margin:0; font-size:16px;">Tap and hold on the video below</p>
@@ -667,32 +697,32 @@ window.UnityVideoRecorder = {
                 
                 <!-- Video player with attention-grabbing border - clearly marked TAP AND HOLD HERE -->
                 <div style="padding:20px; position:relative; text-align:center;">
-                    <div style="border:2px dashed #BA0C2F; padding:8px; border-radius:8px; position:relative; overflow:hidden;">
-                        <div style="position:absolute; top:-12px; left:50%; transform:translateX(-50%); background:white; padding:0 10px; color:#BA0C2F; font-weight:bold; font-family:Arial,sans-serif; z-index:2;">TAP AND HOLD HERE</div>
+                    <div style="border:3px dashed #BA0C2F; padding:8px; border-radius:8px; position:relative; overflow:hidden;">
+                        <div style="position:absolute; top:-12px; left:50%; transform:translateX(-50%); background:white; padding:0 10px; color:#BA0C2F; font-weight:bold; font-family:Arial,sans-serif,-apple-system,BlinkMacSystemFont; z-index:2;">TAP AND HOLD HERE</div>
                         
                         <!-- Animated tap hint overlay that pulses -->
                         <div id="tap-hint-overlay" style="position:absolute; top:0; left:0; right:0; bottom:0; background:rgba(186,12,47,0.1); z-index:1; pointer-events:none; animation:tapPulse 2s infinite;"></div>
                         
-                        <video controls style="width:100%; display:block; border-radius:4px; position:relative; z-index:1;">
+                        <video controls style="width:100%; display:block; border-radius:4px; position:relative; z-index:1; max-height:70vh;">
                             <source src="${url}" type="video/${fileExtension}">
                             Your browser does not support the video tag.
                         </video>
                     </div>
-                    <p style="text-align:center; margin-top:15px; color:#666; font-size:14px; font-family:Arial,sans-serif;">Filename: ${filename}</p>
+                    <p style="text-align:center; margin-top:15px; color:#666; font-size:14px; font-family:Arial,sans-serif,-apple-system,BlinkMacSystemFont;">Filename: ${filename}</p>
                 </div>
                 
                 <!-- Bottom controls - improved for iOS -->
-                <div style="padding:15px 20px; background:#f5f5f5; text-align:center; font-family:Arial,sans-serif;">
-                    <button id="remind-later-btn" style="background:#666; color:white; border:none; padding:10px 20px; border-radius:4px; margin-right:10px; cursor:pointer; font-family:Arial,sans-serif;">Remind me later</button>
-                    <button id="direct-link-btn" style="background:#BA0C2F; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer; font-family:Arial,sans-serif;">Try Direct Link</button>
+                <div style="padding:15px 20px; background:#f5f5f5; text-align:center; font-family:Arial,sans-serif,-apple-system,BlinkMacSystemFont;">
+                    <button id="remind-later-btn" style="background:#666; color:white; border:none; padding:10px 20px; border-radius:4px; margin-right:10px; cursor:pointer; font-family:Arial,sans-serif,-apple-system,BlinkMacSystemFont;">Remind me later</button>
+                    <button id="direct-link-btn" style="background:#BA0C2F; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer; font-family:Arial,sans-serif,-apple-system,BlinkMacSystemFont;">Try Direct Link</button>
                 </div>
             </div>
         `;
         
-        // Append to document body
-        document.body.appendChild(overlay);
+        // Append to TOP WINDOW document body - this is key for iframes
+        topWindow.document.body.appendChild(overlay);
         
-        // Add the animation style
+        // Add the animation style to the TOP WINDOW
         const animationStyle = document.createElement('style');
         animationStyle.innerHTML = `
             @keyframes tapPulse {
@@ -711,19 +741,23 @@ window.UnityVideoRecorder = {
                 animation: pulseAttention 2s infinite;
             }
         `;
-        document.head.appendChild(animationStyle);
+        topWindow.document.head.appendChild(animationStyle);
         
-        // Set up event listeners
-        document.getElementById('close-overlay-btn').addEventListener('click', function() {
+        // Set up event listeners in the TOP WINDOW
+        const closeBtn = topWindow.document.getElementById('close-overlay-btn');
+        const remindBtn = topWindow.document.getElementById('remind-later-btn');
+        const directLinkBtn = topWindow.document.getElementById('direct-link-btn');
+        
+        closeBtn.addEventListener('click', () => {
             overlay.remove();
             animationStyle.remove();
         });
         
-        document.getElementById('remind-later-btn').addEventListener('click', function() {
+        remindBtn.addEventListener('click', () => {
             overlay.remove();
             animationStyle.remove();
             
-            // Show a small floating reminder button that can reopen the overlay
+            // Create floating reminder button that sticks around
             const reminderBtn = document.createElement('div');
             reminderBtn.style.position = 'fixed';
             reminderBtn.style.bottom = '20px';
@@ -734,7 +768,7 @@ window.UnityVideoRecorder = {
             reminderBtn.style.borderRadius = '50%';
             reminderBtn.style.boxShadow = '0 2px 10px rgba(0,0,0,0.3)';
             reminderBtn.style.cursor = 'pointer';
-            reminderBtn.style.zIndex = '999999';
+            reminderBtn.style.zIndex = '2147483646';
             reminderBtn.style.width = '50px';
             reminderBtn.style.height = '50px';
             reminderBtn.style.display = 'flex';
@@ -742,36 +776,58 @@ window.UnityVideoRecorder = {
             reminderBtn.style.justifyContent = 'center';
             reminderBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>';
             
-            reminderBtn.addEventListener('click', function() {
-                // Re-create the overlay when the reminder button is clicked
+            // Add the reminder button to TOP WINDOW
+            topWindow.document.body.appendChild(reminderBtn);
+            
+            // Setup click handler for reminder button
+            reminderBtn.addEventListener('click', () => {
+                // Need to create a new URL object when reusing the blob
                 const newUrl = URL.createObjectURL(blob);
-                const handleSafariDownloadFn = window.UnityVideoRecorder.handleSafariDownload.bind(window.UnityVideoRecorder);
-                handleSafariDownloadFn(blob, fileExtension);
+                const self = this;
+                
+                // Re-show the overlay
+                const handleSafariDownloadFn = function() {
+                    self.handleSafariDownload(blob, fileExtension);
+                };
+                
+                handleSafariDownloadFn();
                 reminderBtn.remove();
             });
-            
-            document.body.appendChild(reminderBtn);
         });
         
-        document.getElementById('direct-link-btn').addEventListener('click', function() {
-            // Create and open a direct link
-            // This may work on some iOS devices/versions
-            window.location.href = url;
+        directLinkBtn.addEventListener('click', () => {
+            // Try direct download - may work on some iOS versions
+            try {
+                // First try with download attribute
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                a.style.display = 'none';
+                topWindow.document.body.appendChild(a);
+                a.click();
+                
+                setTimeout(() => {
+                    topWindow.document.body.removeChild(a);
+                }, 100);
+            } catch (e) {
+                console.error("Direct download failed, trying window.location:", e);
+                // Fallback to window.location
+                topWindow.location.href = url;
+            }
             
-            // Show a timeout message after 3 seconds if the user is still here
-            setTimeout(function() {
-                const directLinkBtn = document.getElementById('direct-link-btn');
-                if (directLinkBtn) {
-                    directLinkBtn.textContent = "Continue with manual download";
-                    directLinkBtn.style.backgroundColor = "#4CAF50";
-                }
-            }, 3000);
+            // Change button appearance after attempt
+            directLinkBtn.textContent = "Continue with manual download";
+            directLinkBtn.style.backgroundColor = "#4CAF50";
         });
         
-        // Auto-play the video
-        const videoElement = overlay.querySelector('video');
-        if (videoElement) {
-            videoElement.play().catch(e => console.log("Auto-play prevented:", e));
+        // Auto-play the video if possible
+        try {
+            const videoElement = topWindow.document.querySelector(`#${overlayId} video`);
+            if (videoElement) {
+                videoElement.play().catch(e => console.log("Auto-play prevented:", e));
+            }
+        } catch (e) {
+            console.log("Could not auto-play video:", e);
         }
     },
     
@@ -817,7 +873,7 @@ window.UnityVideoRecorder = {
                 this.standardDownload(blob, fileExtension);
             }
         } else {
-            alert('No video recordings available to download');
+            this.showNotification('No video recordings available to download', 3000);
         }
     }
 };
