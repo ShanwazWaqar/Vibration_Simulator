@@ -1,5 +1,5 @@
-// UnityVideoRecorder.js - Cross-Browser Compatible Version with iOS Fix
-// This version works on Chrome, Firefox, Safari (macOS and iOS)
+// UnityVideoRecorder.js - Simplified Cross-Browser Version
+// Optimized for all platforms including iOS/iPad with direct downloads
 
 window.UnityVideoRecorder = {
     recorder: null,
@@ -7,19 +7,18 @@ window.UnityVideoRecorder = {
     recordingInfo: null,
     isRecording: false,
     recordingStartTime: 0,
-    frameSkip: 1, // Reduced frame skipping for more reliable capture
+    frameSkip: 1,
     frameCounter: 0,
     recordingCanvas: null,
     recordingCtx: null,
     chunks: [],
     processingQueue: [],
     isProcessing: false,
-    lastFrameTimes: {}, // Track when we last received frames for each view
-    frameImages: {}, // Store the latest frame for each view
+    lastFrameTimes: {},
+    frameImages: {},
     
     // Get the best supported MIME type for the current browser
     getSupportedMimeType: function() {
-        // Try different MIME types in order of preference
         const mimeTypes = [
             'video/webm;codecs=vp9',
             'video/webm;codecs=vp8',
@@ -27,7 +26,7 @@ window.UnityVideoRecorder = {
             'video/mp4',
             'video/mp4;codecs=h264',
             'video/mp4;codecs=avc1',
-            'video/quicktime' // For Safari
+            'video/quicktime'
         ];
         
         for (let type of mimeTypes) {
@@ -37,7 +36,6 @@ window.UnityVideoRecorder = {
             }
         }
         
-        // If none are supported, return null and we'll handle the fallback
         console.warn("No preferred MIME types supported by this browser");
         return null;
     },
@@ -50,12 +48,11 @@ window.UnityVideoRecorder = {
         return isSafari || isIOS;
     },
     
-    // Find the top-level window for displaying overlays
+    // Get the top window (in case we're in an iframe)
     getTopWindow: function() {
         try {
-            // Try to access parent window to see if we're in an iframe
             if (window.parent && window.parent !== window && window.parent.document) {
-                console.log("Using parent window for overlays");
+                console.log("Using parent window for downloads");
                 return window.parent;
             }
         } catch (e) {
@@ -64,178 +61,150 @@ window.UnityVideoRecorder = {
         return window;
     },
     
-    // Show a pre-recording notice for iOS users
-    showIOSPreRecordingNotice: function(callback) {
-        if (!this.isIOSorSafari()) {
-            // Not iOS or Safari, proceed immediately
-            callback();
-            return;
-        }
-        
+    // Show a simple notification
+    showNotification: function(message, duration = 3000) {
         const topWindow = this.getTopWindow();
         
-        // Create a modal dialog
-        const modal = document.createElement('div');
-        modal.style.position = 'fixed';
-        modal.style.top = '0';
-        modal.style.left = '0';
-        modal.style.width = '100%';
-        modal.style.height = '100%';
-        modal.style.backgroundColor = 'rgba(0,0,0,0.7)';
-        modal.style.zIndex = '2147483647'; // Max z-index
-        modal.style.display = 'flex';
-        modal.style.alignItems = 'center';
-        modal.style.justifyContent = 'center';
+        // Remove any existing notification
+        const existingNotification = topWindow.document.getElementById('video-recorder-notification');
+        if (existingNotification) {
+            existingNotification.remove();
+        }
         
-        modal.innerHTML = `
-            <div style="background:white; width:90%; max-width:500px; border-radius:10px; overflow:hidden;">
-                <div style="background:#BA0C2F; color:white; padding:15px; text-align:center;">
-                    <h2 style="margin:0; font-size:18px;">iOS Recording Notice</h2>
-                </div>
-                <div style="padding:20px;">
-                    <p style="margin-top:0;">Since you're using an iOS device, please note:</p>
-                    <ul style="padding-left:20px; margin-bottom:20px;">
-                        <li>After recording, you'll need to manually save the video</li>
-                        <li>We'll show you clear instructions when the recording is complete</li>
-                        <li>You'll need to tap and hold on the video to save it</li>
-                    </ul>
-                    <div style="text-align:center;">
-                        <button id="ios-notice-continue" style="background:#BA0C2F; color:white; border:none; padding:10px 25px; border-radius:5px; font-size:16px; cursor:pointer;">
-                            Continue to Recording
-                        </button>
-                    </div>
-                </div>
-            </div>
-        `;
+        // Create notification element
+        const notification = document.createElement('div');
+        notification.id = 'video-recorder-notification';
+        notification.style.position = 'fixed';
+        notification.style.top = '20px';
+        notification.style.left = '50%';
+        notification.style.transform = 'translateX(-50%)';
+        notification.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+        notification.style.color = 'white';
+        notification.style.padding = '10px 20px';
+        notification.style.borderRadius = '5px';
+        notification.style.fontFamily = 'Arial, sans-serif, -apple-system, BlinkMacSystemFont';
+        notification.style.fontSize = '14px';
+        notification.style.zIndex = '2147483646';
+        notification.style.textAlign = 'center';
+        notification.style.maxWidth = '80%';
+        notification.textContent = message;
         
-        topWindow.document.body.appendChild(modal);
+        topWindow.document.body.appendChild(notification);
         
-        // Set up continue button
-        topWindow.document.getElementById('ios-notice-continue').addEventListener('click', function() {
-            modal.remove();
-            callback();
-        });
+        // Auto-hide after duration
+        if (duration > 0) {
+            setTimeout(() => {
+                if (notification.parentNode) {
+                    notification.remove();
+                }
+            }, duration);
+        }
+        
+        return notification;
     },
     
     // Called by Unity to start recording
     startRecording: function(jsonData) {
-        const self = this;
-        
         try {
             console.log("UnityVideoRecorder: Starting recording...");
             
-            // Show iOS notice if needed, then proceed
-            this.showIOSPreRecordingNotice(function() {
-                try {
-                    // Parse recording info from Unity
-                    const info = JSON.parse(jsonData);
-                    self.recordingInfo = info;
-                    
-                    if (!info.viewCount || info.viewCount < 1) {
-                        console.error("Invalid view count", info);
-                        alert("Recording failed: Invalid camera configuration");
-                        return;
-                    }
-                    
-                    console.log(`Found ${info.viewCount} camera views to record`);
-                    
-                    // Balanced quality settings
-                    const viewWidth = Math.min(info.width, 720); 
-                    const viewHeight = Math.min(info.height, 480);
-                    
-                    // 2+1 layout (2 views on left stacked vertically, 1 view on right taking full height)
-                    self.combinedWidth = viewWidth * 2;
-                    self.combinedHeight = viewHeight * 2;
-                    
-                    console.log(`Creating recording canvas: ${self.combinedWidth}x${self.combinedHeight}`);
-                    
-                    // Create canvas for the combined view
-                    self.recordingCanvas = document.createElement('canvas');
-                    self.recordingCanvas.width = self.combinedWidth;
-                    self.recordingCanvas.height = self.combinedHeight;
-                    self.recordingCtx = self.recordingCanvas.getContext('2d');
-                    
-                    // Fill with black background
-                    self.recordingCtx.fillStyle = 'black';
-                    self.recordingCtx.fillRect(0, 0, self.combinedWidth, self.combinedHeight);
-                    
-                    // Draw placeholders for each view
-                    self.drawViewPlaceholders(viewWidth, viewHeight);
-                    
-                    // Create a stream from the canvas
-                    const stream = self.recordingCanvas.captureStream(20); // Balanced 20fps
-                    
-                    // Get supported MIME type
-                    const mimeType = self.getSupportedMimeType();
-                    
-                    // Set recorder options based on browser support
-                    const recorderOptions = {};
-                    
-                    if (mimeType) {
-                        recorderOptions.mimeType = mimeType;
-                        recorderOptions.videoBitsPerSecond = 3000000; // 3Mbps
-                    } else {
-                        // If no specified mime type is supported, use browser defaults
-                        console.log("Using browser default encoding settings");
-                    }
-                    
-                    try {
-                        // Create a media recorder with appropriate settings
-                        self.recorder = new MediaRecorder(stream, recorderOptions);
-                    } catch (e) {
-                        console.error("Failed to create MediaRecorder with options. Trying with defaults:", e);
-                        // Fallback to default options
-                        self.recorder = new MediaRecorder(stream);
-                    }
-                    
-                    // Store recorded chunks
-                    self.chunks = [];
-                    self.recorder.ondataavailable = (e) => {
-                        if (e.data.size > 0) {
-                            self.chunks.push(e.data);
-                        }
-                    };
-                    
-                    // Start recording
-                    self.recorder.start(1000); // Collect data every second
-                    
-                    // Reset state
-                    self.frameBuffer = [];
-                    self.processingQueue = [];
-                    self.isProcessing = false;
-                    self.isRecording = true;
-                    self.recordingStartTime = Date.now();
-                    self.frameCounter = 0;
-                    self.lastFrameTimes = {}; // Reset frame times
-                    self.frameImages = {}; // Reset stored frames
-                    
-                    // Show recording indicator
-                    self.showRecordingIndicator(true);
-                    
-                    // Remember canvas info for later use
-                    self.viewCount = info.viewCount;
-                    self.viewWidth = viewWidth;
-                    self.viewHeight = viewHeight;
-                    
-                    console.log("Recording started with cross-platform settings");
-                    
-                    // Setup a regular redraw interval to ensure all views stay visible
-                    self.redrawInterval = setInterval(() => self.redrawAllViews(), 100);
-                } catch (error) {
-                    console.error('Error in recording callback:', error);
-                    self.showNotification("Failed to start recording: " + error.message, 3000);
+            // Parse recording info from Unity
+            const info = JSON.parse(jsonData);
+            this.recordingInfo = info;
+            
+            if (!info.viewCount || info.viewCount < 1) {
+                console.error("Invalid view count", info);
+                this.showNotification("Recording failed: Invalid camera configuration");
+                return;
+            }
+            
+            console.log(`Found ${info.viewCount} camera views to record`);
+            
+            // Balanced quality settings
+            const viewWidth = Math.min(info.width, 720); 
+            const viewHeight = Math.min(info.height, 480);
+            
+            // Layout configuration
+            this.combinedWidth = viewWidth * 2;
+            this.combinedHeight = viewHeight * 2;
+            
+            // Create canvas for the combined view
+            this.recordingCanvas = document.createElement('canvas');
+            this.recordingCanvas.width = this.combinedWidth;
+            this.recordingCanvas.height = this.combinedHeight;
+            this.recordingCtx = this.recordingCanvas.getContext('2d');
+            
+            // Fill with black background
+            this.recordingCtx.fillStyle = 'black';
+            this.recordingCtx.fillRect(0, 0, this.combinedWidth, this.combinedHeight);
+            
+            // Draw placeholders for each view
+            this.drawViewPlaceholders(viewWidth, viewHeight);
+            
+            // Create a stream from the canvas
+            const stream = this.recordingCanvas.captureStream(20); // 20fps
+            
+            // Get supported MIME type
+            const mimeType = this.getSupportedMimeType();
+            
+            // Set recorder options
+            const recorderOptions = {};
+            if (mimeType) {
+                recorderOptions.mimeType = mimeType;
+                recorderOptions.videoBitsPerSecond = 3000000; // 3Mbps
+            }
+            
+            try {
+                // Create media recorder
+                this.recorder = new MediaRecorder(stream, recorderOptions);
+            } catch (e) {
+                console.error("Failed to create MediaRecorder with options. Using defaults:", e);
+                this.recorder = new MediaRecorder(stream);
+            }
+            
+            // Store recorded chunks
+            this.chunks = [];
+            this.recorder.ondataavailable = (e) => {
+                if (e.data.size > 0) {
+                    this.chunks.push(e.data);
                 }
-            });
+            };
+            
+            // Start recording
+            this.recorder.start(1000); // Collect data every second
+            
+            // Reset state
+            this.frameBuffer = [];
+            this.processingQueue = [];
+            this.isProcessing = false;
+            this.isRecording = true;
+            this.recordingStartTime = Date.now();
+            this.frameCounter = 0;
+            this.lastFrameTimes = {};
+            this.frameImages = {};
+            
+            // Show recording indicator
+            this.showRecordingIndicator(true);
+            
+            // Remember canvas info
+            this.viewCount = info.viewCount;
+            this.viewWidth = viewWidth;
+            this.viewHeight = viewHeight;
+            
+            console.log("Recording started with cross-platform settings");
+            
+            // Setup redraw interval
+            this.redrawInterval = setInterval(() => this.redrawAllViews(), 100);
         } catch (error) {
             console.error('Error starting recording:', error);
-            this.showNotification("Failed to start recording: " + error.message, 3000);
+            this.showNotification("Failed to start recording: " + error.message);
         }
     },
-
+    
     // Show/hide recording indicator
     showRecordingIndicator: function(isVisible) {
         try {
-            // Try to find the indicator in both current window and parent window
+            // Try to find indicator in current window
             let recordingIndicator = document.getElementById('recording-indicator');
             
             // If not found in current window, check parent window
@@ -251,7 +220,7 @@ window.UnityVideoRecorder = {
                 recordingIndicator.style.display = isVisible ? "flex" : "none";
             }
             
-            // Also call any global handler if it exists
+            // Also call global handler if it exists
             if (typeof window.setRecordingActive === 'function') {
                 window.setRecordingActive(isVisible);
             }
@@ -260,7 +229,7 @@ window.UnityVideoRecorder = {
         }
     },
     
-    // Draw view placeholders so we know where each view should be
+    // Draw view placeholders
     drawViewPlaceholders: function(viewWidth, viewHeight) {
         const ctx = this.recordingCtx;
         
@@ -288,7 +257,7 @@ window.UnityVideoRecorder = {
     addFrame: function(jsonData) {
         if (!this.isRecording) return;
         
-        // Throttle frame processing to reduce CPU load
+        // Throttle frame processing
         this.frameCounter++;
         if (this.frameCounter % (this.frameSkip + 1) !== 0) {
             return; // Skip this frame
@@ -301,17 +270,12 @@ window.UnityVideoRecorder = {
             // Update last frame time for this view
             this.lastFrameTimes[viewIndex] = Date.now();
             
-            // Limit queue size to prevent memory issues
+            // Limit queue size
             if (this.processingQueue.length < 30) {
                 this.processingQueue.push(frameInfo);
-                
-                // Log frame reception for debugging
-                if (this.frameCounter % 100 === 0) {
-                    console.log(`Queued frame for view ${viewIndex}, queue size: ${this.processingQueue.length}`);
-                }
             }
             
-            // Start processing if not already doing so
+            // Start processing if not already
             if (!this.isProcessing) {
                 this.processNextFrameInQueue();
             }
@@ -320,7 +284,7 @@ window.UnityVideoRecorder = {
         }
     },
     
-    // Process frames one at a time from the queue
+    // Process frames one at a time
     processNextFrameInQueue: function() {
         if (this.processingQueue.length === 0) {
             this.isProcessing = false;
@@ -329,12 +293,12 @@ window.UnityVideoRecorder = {
         
         this.isProcessing = true;
         
-        // Get next frame to process
+        // Get next frame
         const frameInfo = this.processingQueue.shift();
         
         // Process the frame
         this.processFrame(frameInfo).then(() => {
-            // Process next frame after a delay to maintain browser responsiveness
+            // Process next frame after a small delay
             setTimeout(() => this.processNextFrameInQueue(), 10);
         }).catch(err => {
             console.error("Error processing frame:", err);
@@ -347,11 +311,11 @@ window.UnityVideoRecorder = {
     redrawAllViews: function() {
         if (!this.isRecording || !this.recordingCtx) return;
         
-        // First, clear everything
+        // Clear everything
         this.recordingCtx.fillStyle = 'black';
         this.recordingCtx.fillRect(0, 0, this.combinedWidth, this.combinedHeight);
         
-        // Draw each view with its most recent frame
+        // Draw each view
         for (let viewIndex = 0; viewIndex < 3; viewIndex++) {
             let x, y, width, height;
             
@@ -372,7 +336,7 @@ window.UnityVideoRecorder = {
                 x = this.viewWidth;
                 y = 0;
                 width = this.viewWidth;
-                height = this.combinedHeight; // Full height
+                height = this.combinedHeight;
             }
             
             // If we have a saved frame for this view, draw it
@@ -401,11 +365,10 @@ window.UnityVideoRecorder = {
                 let viewIndex = frameInfo.viewIndex;
                 
                 if (viewIndex < 0 || viewIndex >= 3) {
-                    console.warn(`Invalid view index: ${viewIndex}, forcing to range 0-2`);
                     viewIndex = Math.min(2, Math.max(0, viewIndex));
                 }
                 
-                // Calculate position based on custom layout
+                // Calculate position
                 let x, y, width, height;
                 
                 if (viewIndex === 0) {
@@ -425,20 +388,20 @@ window.UnityVideoRecorder = {
                     x = this.viewWidth;
                     y = 0;
                     width = this.viewWidth;
-                    height = this.combinedHeight; // Full height
+                    height = this.combinedHeight;
                 }
                 
                 // Create and load image
                 const img = new Image();
                 
                 img.onload = () => {
-                    // Store this frame for the view
+                    // Store this frame
                     this.frameImages[viewIndex] = img;
                     
-                    // Draw the image at the calculated position
+                    // Draw the image
                     this.recordingCtx.drawImage(img, x, y, width, height);
                     
-                    // Add debugging view labels
+                    // Add label
                     this.recordingCtx.fillStyle = 'rgba(255, 255, 255, 0.3)';
                     this.recordingCtx.font = '12px Arial';
                     this.recordingCtx.fillText(`V${viewIndex}`, x + 5, y + 12);
@@ -469,7 +432,6 @@ window.UnityVideoRecorder = {
         this.isRecording = false;
         
         // Log frame reception summary
-        console.log("Frame reception summary:");
         for (let viewIndex in this.lastFrameTimes) {
             console.log(`View ${viewIndex}: Last frame received ${Date.now() - this.lastFrameTimes[viewIndex]}ms ago`);
         }
@@ -486,29 +448,28 @@ window.UnityVideoRecorder = {
         const recordingDuration = (Date.now() - this.recordingStartTime) / 1000;
         console.log(`Recording duration: ${recordingDuration.toFixed(2)} seconds`);
         
-        // Hide recording indicators
+        // Hide recording indicator
         this.showRecordingIndicator(false);
         
-        // Show processing message
-        this.showNotification("Processing video. Please wait...");
+        // Show processing notification
+        const notification = this.showNotification("Processing video. Please wait...", 0);
         
-        // Stop the recorder after processing remaining frames
+        // Stop the recorder
         if (this.recorder && this.recorder.state !== 'inactive') {
             this.recorder.onstop = () => {
                 try {
                     // Create blob from chunks
                     let mimeType = 'video/webm';
                     
-                    // Try to determine the MIME type from the recorder
+                    // Try to determine MIME type from recorder
                     if (this.recorder.mimeType) {
-                        // Extract base MIME type without codecs
                         mimeType = this.recorder.mimeType.split(';')[0];
                     }
                     
                     console.log(`Creating blob with MIME type: ${mimeType}`);
                     const blob = new Blob(this.chunks, { type: mimeType });
                     
-                    // Determine file extension based on MIME type
+                    // Determine file extension
                     let fileExtension = 'webm';
                     if (mimeType.includes('mp4')) {
                         fileExtension = 'mp4';
@@ -516,17 +477,22 @@ window.UnityVideoRecorder = {
                         fileExtension = 'mov';
                     }
                     
-                    // Hide the notification
-                    this.hideNotification();
+                    // Remove processing notification
+                    if (notification && notification.parentNode) {
+                        notification.remove();
+                    }
                     
-                    // For Safari/iOS special handling
+                    // iOS/Safari handling
                     if (this.isIOSorSafari()) {
-                        console.log("iOS/Safari detected, using special download method");
-                        this.handleSafariDownload(blob, fileExtension);
+                        // iOS direct download
+                        this.iOSDownload(blob, fileExtension);
                     } else {
-                        // Standard download method for other browsers
+                        // Standard download
                         this.standardDownload(blob, fileExtension);
                     }
+                    
+                    // Show success notification
+                    this.showNotification("Video downloaded successfully", 3000);
                     
                     // Cleanup
                     this.chunks = [];
@@ -535,299 +501,80 @@ window.UnityVideoRecorder = {
                     this.recorder = null;
                     this.frameImages = {};
                     
-                    console.log('Recording finalized and resources cleaned up');
+                    console.log('Recording resources cleaned up');
                 } catch (err) {
-                    console.error("Error finishing recording:", err);
-                    this.showNotification("Error finishing recording: " + err.message, 3000);
+                    console.error("Error finalizing recording:", err);
+                    
+                    // Remove processing notification
+                    if (notification && notification.parentNode) {
+                        notification.remove();
+                    }
+                    
+                    this.showNotification("Error processing video: " + err.message, 3000);
                 }
             };
             
-            // Give a moment for any pending frames to be processed
+            // Wait a moment for any pending frames
             setTimeout(() => {
                 this.recorder.stop();
             }, 500);
         } else {
             console.warn("Recorder not available or already inactive");
-            this.hideNotification();
+            
+            // Remove processing notification
+            if (notification && notification.parentNode) {
+                notification.remove();
+            }
+            
+            this.showNotification("No video recorded", 3000);
         }
     },
     
-    // Add notification functionality for better user feedback
-    ensureNotificationContainer: function() {
-        const topWindow = this.getTopWindow();
-        
-        if (!topWindow.document.getElementById('video-notification-container')) {
-            const notificationContainer = document.createElement('div');
-            notificationContainer.id = 'video-notification-container';
-            notificationContainer.style.position = 'fixed';
-            notificationContainer.style.top = '80px';
-            notificationContainer.style.left = '50%';
-            notificationContainer.style.transform = 'translateX(-50%)';
-            notificationContainer.style.zIndex = '2147483646'; // Very high z-index
-            notificationContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.85)';
-            notificationContainer.style.borderRadius = '8px';
-            notificationContainer.style.padding = '16px 24px';
-            notificationContainer.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.5)';
-            notificationContainer.style.display = 'flex';
-            notificationContainer.style.alignItems = 'center';
-            notificationContainer.style.justifyContent = 'center';
-            notificationContainer.style.transition = 'all 0.3s ease';
-            notificationContainer.style.borderLeft = '4px solid #ba0c2f';
-            notificationContainer.style.maxWidth = '90%';
-            notificationContainer.style.width = 'auto';
-            notificationContainer.style.opacity = '0';
-            notificationContainer.style.visibility = 'hidden';
-            
-            notificationContainer.innerHTML = `
-                <div style="display: flex; align-items: center; color: white; font-family: 'Inter', sans-serif, -apple-system, BlinkMacSystemFont;">
-                    <div style="margin-right: 16px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
-                        <svg viewBox="0 0 50 50" style="width: 32px; height: 32px; animation: spin 1.5s linear infinite;">
-                            <circle cx="25" cy="25" r="20" fill="none" stroke="#ba0c2f" stroke-width="5" style="stroke-linecap: round; animation: dash 1.5s ease-in-out infinite;"></circle>
-                        </svg>
-                    </div>
-                    <div id="video-notification-message" style="font-size: 16px; font-weight: 500; letter-spacing: 0.2px;"></div>
-                </div>
-            `;
-            
-            // Add animation keyframes
-            const styleSheet = document.createElement('style');
-            styleSheet.textContent = `
-                @keyframes spin {
-                    100% { transform: rotate(360deg); }
-                }
-                @keyframes dash {
-                    0% { stroke-dasharray: 1, 150; stroke-dashoffset: 0; }
-                    50% { stroke-dasharray: 90, 150; stroke-dashoffset: -35; }
-                    100% { stroke-dasharray: 90, 150; stroke-dashoffset: -124; }
-                }
-            `;
-            topWindow.document.head.appendChild(styleSheet);
-            
-            topWindow.document.body.appendChild(notificationContainer);
-        }
-    },
-    
-    showNotification: function(message, duration = 0) {
-        this.ensureNotificationContainer();
-        const topWindow = this.getTopWindow();
-        const container = topWindow.document.getElementById('video-notification-container');
-        const messageEl = topWindow.document.getElementById('video-notification-message');
-        
-        if (container && messageEl) {
-            messageEl.textContent = message;
-            
-            // Show notification
-            container.style.opacity = '1';
-            container.style.visibility = 'visible';
-            container.style.transform = 'translate(-50%, 0)';
-            
-            // Auto-hide after duration if specified
-            if (duration > 0) {
-                setTimeout(() => {
-                    this.hideNotification();
-                }, duration);
-            }
-        }
-    },
-    
-    hideNotification: function() {
-        const topWindow = this.getTopWindow();
-        const container = topWindow.document.getElementById('video-notification-container');
-        if (container) {
-            container.style.opacity = '0';
-            container.style.visibility = 'hidden';
-            container.style.transform = 'translate(-50%, -20px)';
-        }
-    },
-    
-    // Improved handleSafariDownload function for iOS/Safari devices
-    handleSafariDownload: function(blob, fileExtension) {
-        const url = URL.createObjectURL(blob);
-        const filename = `simulation-views-${new Date().toISOString().replace(/[:.]/g, '-')}.${fileExtension}`;
-        
-        // Get the top-level window to ensure overlay is visible
-        const topWindow = this.getTopWindow();
-        
-        // Create a full-screen overlay that sits above everything else
-        const overlayId = 'ios-video-download-overlay';
-        let overlay = topWindow.document.getElementById(overlayId);
-        
-        // Remove any existing overlay first to prevent duplicates
-        if (overlay) {
-            overlay.remove();
-        }
-        
-        overlay = document.createElement('div');
-        overlay.id = overlayId;
-        overlay.style.position = 'fixed';
-        overlay.style.top = '0';
-        overlay.style.left = '0';
-        overlay.style.width = '100%';
-        overlay.style.height = '100%';
-        overlay.style.backgroundColor = 'rgba(0,0,0,0.95)';
-        overlay.style.zIndex = '2147483647'; // Max z-index to ensure it's above everything
-        overlay.style.display = 'flex';
-        overlay.style.alignItems = 'center';
-        overlay.style.justifyContent = 'center';
-        
-        // Create a clean, modern UI container optimized for mobile
-        overlay.innerHTML = `
-            <div style="background:white; width:90%; max-width:600px; border-radius:12px; overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,0.3); position:relative; z-index:2147483647;">
-                <!-- Header - UGA Red color -->
-                <div style="background:#BA0C2F; color:white; padding:15px 20px; display:flex; justify-content:space-between; align-items:center;">
-                    <h2 style="margin:0; font-size:18px; font-family:Arial,sans-serif,-apple-system,BlinkMacSystemFont;">Your Video is Ready</h2>
-                    <button id="close-overlay-btn" style="background:transparent; border:none; color:white; font-size:22px; cursor:pointer; padding:0 5px;">×</button>
-                </div>
-                
-                <!-- Instructions with numbered steps -->
-                <div style="padding:20px; border-bottom:1px solid #eee; font-family:Arial,sans-serif,-apple-system,BlinkMacSystemFont;">
-                    <div style="display:flex; align-items:center; margin-bottom:15px;">
-                        <div style="min-width:40px; height:40px; background:#BA0C2F; color:white; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-right:15px; font-weight:bold;">1</div>
-                        <p style="margin:0; font-size:16px;">Tap and hold on the video below</p>
-                    </div>
-                    <div style="display:flex; align-items:center; margin-bottom:15px;">
-                        <div style="min-width:40px; height:40px; background:#BA0C2F; color:white; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-right:15px; font-weight:bold;">2</div>
-                        <p style="margin:0; font-size:16px;">Select "Download Video" or "Save Video"</p>
-                    </div>
-                    <div style="display:flex; align-items:center;">
-                        <div style="min-width:40px; height:40px; background:#BA0C2F; color:white; border-radius:50%; display:flex; align-items:center; justify-content:center; margin-right:15px; font-weight:bold;">3</div>
-                        <p style="margin:0; font-size:16px;">Your video will be saved to your device</p>
-                    </div>
-                </div>
-                
-                <!-- Video player with attention-grabbing border - clearly marked TAP AND HOLD HERE -->
-                <div style="padding:20px; position:relative; text-align:center;">
-                    <div style="border:3px dashed #BA0C2F; padding:8px; border-radius:8px; position:relative; overflow:hidden;">
-                        <div style="position:absolute; top:-12px; left:50%; transform:translateX(-50%); background:white; padding:0 10px; color:#BA0C2F; font-weight:bold; font-family:Arial,sans-serif,-apple-system,BlinkMacSystemFont; z-index:2;">TAP AND HOLD HERE</div>
-                        
-                        <!-- Animated tap hint overlay that pulses -->
-                        <div id="tap-hint-overlay" style="position:absolute; top:0; left:0; right:0; bottom:0; background:rgba(186,12,47,0.1); z-index:1; pointer-events:none; animation:tapPulse 2s infinite;"></div>
-                        
-                        <video controls style="width:100%; display:block; border-radius:4px; position:relative; z-index:1; max-height:70vh;">
-                            <source src="${url}" type="video/${fileExtension}">
-                            Your browser does not support the video tag.
-                        </video>
-                    </div>
-                    <p style="text-align:center; margin-top:15px; color:#666; font-size:14px; font-family:Arial,sans-serif,-apple-system,BlinkMacSystemFont;">Filename: ${filename}</p>
-                </div>
-                
-                <!-- Bottom controls - improved for iOS -->
-                <div style="padding:15px 20px; background:#f5f5f5; text-align:center; font-family:Arial,sans-serif,-apple-system,BlinkMacSystemFont;">
-                    <button id="remind-later-btn" style="background:#666; color:white; border:none; padding:10px 20px; border-radius:4px; margin-right:10px; cursor:pointer; font-family:Arial,sans-serif,-apple-system,BlinkMacSystemFont;">Remind me later</button>
-                    <button id="direct-link-btn" style="background:#BA0C2F; color:white; border:none; padding:10px 20px; border-radius:4px; cursor:pointer; font-family:Arial,sans-serif,-apple-system,BlinkMacSystemFont;">Try Direct Link</button>
-                </div>
-            </div>
-        `;
-        
-        // Append to TOP WINDOW document body - this is key for iframes
-        topWindow.document.body.appendChild(overlay);
-        
-        // Add the animation style to the TOP WINDOW
-        const animationStyle = document.createElement('style');
-        animationStyle.innerHTML = `
-            @keyframes tapPulse {
-                0% { opacity: 0; }
-                50% { opacity: 0.5; }
-                100% { opacity: 0; }
-            }
-            
-            @keyframes pulseAttention {
-                0% { box-shadow: 0 0 0 0 rgba(186, 12, 47, 0.7); }
-                70% { box-shadow: 0 0 0 10px rgba(186, 12, 47, 0); }
-                100% { box-shadow: 0 0 0 0 rgba(186, 12, 47, 0); }
-            }
-            
-            #${overlayId} video {
-                animation: pulseAttention 2s infinite;
-            }
-        `;
-        topWindow.document.head.appendChild(animationStyle);
-        
-        // Set up event listeners in the TOP WINDOW
-        const closeBtn = topWindow.document.getElementById('close-overlay-btn');
-        const remindBtn = topWindow.document.getElementById('remind-later-btn');
-        const directLinkBtn = topWindow.document.getElementById('direct-link-btn');
-        
-        closeBtn.addEventListener('click', () => {
-            overlay.remove();
-            animationStyle.remove();
-        });
-        
-        remindBtn.addEventListener('click', () => {
-            overlay.remove();
-            animationStyle.remove();
-            
-            // Create floating reminder button that sticks around
-            const reminderBtn = document.createElement('div');
-            reminderBtn.style.position = 'fixed';
-            reminderBtn.style.bottom = '20px';
-            reminderBtn.style.right = '20px';
-            reminderBtn.style.backgroundColor = '#BA0C2F';
-            reminderBtn.style.color = 'white';
-            reminderBtn.style.padding = '12px';
-            reminderBtn.style.borderRadius = '50%';
-            reminderBtn.style.boxShadow = '0 2px 10px rgba(0,0,0,0.3)';
-            reminderBtn.style.cursor = 'pointer';
-            reminderBtn.style.zIndex = '2147483646';
-            reminderBtn.style.width = '50px';
-            reminderBtn.style.height = '50px';
-            reminderBtn.style.display = 'flex';
-            reminderBtn.style.alignItems = 'center';
-            reminderBtn.style.justifyContent = 'center';
-            reminderBtn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"></path><line x1="4" y1="22" x2="4" y2="15"></line></svg>';
-            
-            // Add the reminder button to TOP WINDOW
-            topWindow.document.body.appendChild(reminderBtn);
-            
-            // Setup click handler for reminder button
-            reminderBtn.addEventListener('click', () => {
-                // Need to create a new URL object when reusing the blob
-                const newUrl = URL.createObjectURL(blob);
-                const self = this;
-                
-                // Re-show the overlay
-                const handleSafariDownloadFn = function() {
-                    self.handleSafariDownload(blob, fileExtension);
-                };
-                
-                handleSafariDownloadFn();
-                reminderBtn.remove();
-            });
-        });
-        
-        directLinkBtn.addEventListener('click', () => {
-            // Try direct download - may work on some iOS versions
-            try {
-                // First try with download attribute
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = filename;
-                a.style.display = 'none';
-                topWindow.document.body.appendChild(a);
-                a.click();
-                
-                setTimeout(() => {
-                    topWindow.document.body.removeChild(a);
-                }, 100);
-            } catch (e) {
-                console.error("Direct download failed, trying window.location:", e);
-                // Fallback to window.location
-                topWindow.location.href = url;
-            }
-            
-            // Change button appearance after attempt
-            directLinkBtn.textContent = "Continue with manual download";
-            directLinkBtn.style.backgroundColor = "#4CAF50";
-        });
-        
-        // Auto-play the video if possible
+    // iOS direct download method
+    iOSDownload: function(blob, fileExtension) {
         try {
-            const videoElement = topWindow.document.querySelector(`#${overlayId} video`);
-            if (videoElement) {
-                videoElement.play().catch(e => console.log("Auto-play prevented:", e));
-            }
-        } catch (e) {
-            console.log("Could not auto-play video:", e);
+            const topWindow = this.getTopWindow();
+            const filename = `sim-recording-${new Date().toISOString().replace(/[:.]/g, '-')}.${fileExtension}`;
+            const url = URL.createObjectURL(blob);
+            
+            console.log("Using direct download for iOS");
+            this.showNotification("Downloading video...", 2000);
+            
+            // Try multiple download approaches for iOS
+            
+            // Method 1: Direct navigation to the blob URL
+            // This works on many modern iOS versions
+            topWindow.location.href = url;
+            
+            // Method 2: Also try creating a download link
+            // Some versions of iOS may handle this
+            setTimeout(() => {
+                try {
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    a.style.display = 'none';
+                    topWindow.document.body.appendChild(a);
+                    a.click();
+                    
+                    setTimeout(() => {
+                        if (a.parentNode) {
+                            topWindow.document.body.removeChild(a);
+                        }
+                    }, 100);
+                } catch (e) {
+                    console.log("Alternative download method also failed:", e);
+                }
+            }, 500);
+            
+            // Clean up the URL object after a delay
+            setTimeout(() => {
+                URL.revokeObjectURL(url);
+            }, 5000);
+            
+        } catch (err) {
+            console.error("iOS download error:", err);
+            this.showNotification("Download error: " + err.message, 3000);
         }
     },
     
@@ -837,7 +584,7 @@ window.UnityVideoRecorder = {
         const a = document.createElement('a');
         a.style.display = 'none';
         a.href = url;
-        a.download = `simulation-views-${new Date().toISOString().replace(/[:.]/g, '-')}.${fileExtension}`;
+        a.download = `sim-recording-${new Date().toISOString().replace(/[:.]/g, '-')}.${fileExtension}`;
         document.body.appendChild(a);
         a.click();
         
@@ -854,7 +601,6 @@ window.UnityVideoRecorder = {
             this.stopRecording();
         } else if (this.chunks && this.chunks.length > 0) {
             // If we have chunks but we're not recording, create a download
-            // Determine the appropriate MIME type
             let mimeType = 'video/webm';
             let fileExtension = 'webm';
             
@@ -866,14 +612,14 @@ window.UnityVideoRecorder = {
             
             const blob = new Blob(this.chunks, { type: mimeType });
             
-            // Use appropriate download method based on browser
+            // Use appropriate download method
             if (this.isIOSorSafari()) {
-                this.handleSafariDownload(blob, fileExtension);
+                this.iOSDownload(blob, fileExtension);
             } else {
                 this.standardDownload(blob, fileExtension);
             }
         } else {
-            this.showNotification('No video recordings available to download', 3000);
+            this.showNotification('No video recordings available', 3000);
         }
     }
 };
