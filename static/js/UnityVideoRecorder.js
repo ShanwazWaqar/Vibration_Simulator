@@ -568,8 +568,13 @@ window.UnityVideoRecorder = {
                         Your video is ready. When the video opens, tap the <strong>Share icon</strong> and select <strong>"Save to Files"</strong> to keep it.
                     </p>
                     
-                    <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAKAAAABQCAMAAAC5rivZAAAAolBMVEUAAAD///8jIyNHR0f39/eZmZmJiYmAgIBra2shISHc3Nzr6+vz8/Pp6en5+flycnLb29vQ0NCdnZ2QkJBRUVE6OjqysrLR0dGpqaktLS2hoaHJycnh4eFbW1tMTEw/Pz+1tbV5eXlaWlrFxcVnZ2ciIiLk5ORUVFQ2NjYpKSkaGhqurq4vLy9gYGDBwcG8vLyfn5+MjIx+fn5JSUl2dnampqb///+bMjZLAAAANHRSTlMA/AQy+g3y02OdCY4sFeISQxh2La9PYHBaOBGJVkq5pH9Snplwbltgdgbfxrm1cU6IzK6Yy11NjQAAA/VJREFUaN7tmuly2jAUhQ1m8UpYDJjdBLKRhCRN0n7/d+tdJJGQbWzZTDqTe34AZvzp3HuuJIOD/39oNGfTgfwcGvDr10H7wzQbDeC3zhSO0WsLw34FtOYNDiRHIQoFy+sUTi3Ku9kHYOxYnAbMrw8Yj1cK/KIR4YE4fXb7TtW5OTtgOoZE9O8eYlpRwOU1YJIRcCZiHWAT7gB7A8hrPGYJMFEuGcBrC/h0DZieBOTeZAzMYZAzMN4D5gJswQ/5HsxM3dI70TpIwCBQq0eBKy7lIKMDLuQg+x1wq3vgKsDe1hq8yUF+pAvXA8dZBxhawPzNAD7vA3MDGLaBV9DvNE0LONtD7rKGBtBPVL/e2T1waAFDC3jcAoYWMLCKSzlJclfb0AJ2V9AwpYLzTsJKPeRZwGq1DSzgsE9lwrKAU3mUBX2oLHuLpQVc5gJULFQ3FGACJb/uQyqxVeESZZ4CjInB6H0Ap+YzfO3pwTxL8NQfKoZDBZ6xIDdFbQFnS4GLuCvF/bawlT0oKR4cY2GqPtTu7iCxQpZs0YIr6qBkQXCNJZG5izq0uyItuTigr2TKdq40IHsyP2zfF5pPPMUZuIHXnNQ9OWMDNcU+D+C0J9hnfNXHTQluS6xJrmyPEzAXIG0kAxNuZIEbCvmKK9kDc+wBO7aArLeSYpMVClyXB8VUgBXeXqzYFp5gkJm0cZgA8zXkJBdCYvgxvkDXaL5qJ3IHPKmvBLg4CohtZLu0G3AjGcv24jImG1rnHoxdbUzITnFDFScCnLGRl3WkAJssJLkC9PUdTG2/Uyog2d1K34NoiL/KnmJLgH6Oe41pYNuLnB+ymL7INm+YX2NJo1wB+jrGKtCnXQFuwZQYuE/Fsc1P0LiYHrLm+pX6aqeKN3JBf9SPT0Z8iMRy5mxovfCmFE/xpYpJ2LuRsTJUeH5J66+TcCrAmNcx0C0oQJ9CJgErdw9qkwnQkgCXlG7h1a0f24QMrJTyxpbj9UwfVXGSiAB2HMuYqIAeLx9Z0MxLnC0oTcZ7QTMxLbFaVh1wSGWZ8f6dSKrIUQE9lYB5iyT4d+YwTKSp4nF58Lm6oZTZdLgHr8fq0+1c36wK8EoVs2cJUMVJ/F7FLbJTxdJk6oX5iFm4UMXj36t4DOP3Kl7DSgEOVIzdkIAZJrSp4oocfMTnZUXPHqyKxdcLnBRXZFPFA73g8R3sUxnGZt2Kk2xAfuCmyIaYFHEPlPWdmHDOoIFDGWsnrr06uPH5D5Gu6XG+WcPD6I+UGDvZ8yOKGQvXbVn2Q2i3Z+1vxbAhx38BWUHDfXZY7PkAAAAASUVORK5CYII=" 
-                         style="width: 80px; margin: 10px auto; display: block;">
+                    <div style="margin: 15px auto; width: 80px; height: 80px;">
+                        <svg viewBox="0 0 24 24" width="80" height="80" stroke="#000" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"></circle>
+                            <path d="M8.56 2.75c4.37 6.03 6.02 9.42 8.03 17.72m2.54-15.38c-3.72 4.35-8.94 5.66-16.88 5.85m19.5 1.9c-3.5-.93-6.63-.82-8.94 0-2.58.92-5.01 2.86-7.44 6.32"></path>
+                        </svg>
+                        <div style="text-align: center; font-size: 12px; margin-top: 5px; font-weight: bold;">Share Icon</div>
+                    </div>
                     
                     <button id="open-video-btn" style="background-color: #BA0C2F; color: white; border: none; padding: 12px 30px; border-radius: 8px; font-size: 16px; font-weight: bold; margin-top: 15px; cursor: pointer; font-family: Arial, -apple-system;">
                         Open Video Now
