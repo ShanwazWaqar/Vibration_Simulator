@@ -1,5 +1,5 @@
-// UnityVideoRecorder.js - Simplified Cross-Browser Version
-// Optimized for all platforms including iOS/iPad with direct downloads
+// UnityVideoRecorder.js - iOS-Optimized Version
+// Streamlined for all platforms with improved iOS handling
 
 window.UnityVideoRecorder = {
     recorder: null,
@@ -16,6 +16,7 @@ window.UnityVideoRecorder = {
     isProcessing: false,
     lastFrameTimes: {},
     frameImages: {},
+    lastVideoUrl: null, // Store URL for access after navigation
     
     // Get the best supported MIME type for the current browser
     getSupportedMimeType: function() {
@@ -46,6 +47,12 @@ window.UnityVideoRecorder = {
         const isSafari = /^((?!chrome|android).)*safari/i.test(userAgent);
         const isIOS = /iphone|ipad|ipod/.test(userAgent);
         return isSafari || isIOS;
+    },
+    
+    // Check if it's specifically iOS (not macOS Safari)
+    isIOS: function() {
+        const userAgent = navigator.userAgent.toLowerCase();
+        return /iphone|ipad|ipod/.test(userAgent);
     },
     
     // Get the top window (in case we're in an iframe)
@@ -80,14 +87,15 @@ window.UnityVideoRecorder = {
         notification.style.transform = 'translateX(-50%)';
         notification.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
         notification.style.color = 'white';
-        notification.style.padding = '10px 20px';
+        notification.style.padding = '12px 20px';
         notification.style.borderRadius = '5px';
         notification.style.fontFamily = 'Arial, sans-serif, -apple-system, BlinkMacSystemFont';
         notification.style.fontSize = '14px';
         notification.style.zIndex = '2147483646';
         notification.style.textAlign = 'center';
-        notification.style.maxWidth = '80%';
-        notification.textContent = message;
+        notification.style.maxWidth = '90%';
+        notification.style.boxShadow = '0 4px 8px rgba(0,0,0,0.3)';
+        notification.innerHTML = message;
         
         topWindow.document.body.appendChild(notification);
         
@@ -484,15 +492,12 @@ window.UnityVideoRecorder = {
                     
                     // iOS/Safari handling
                     if (this.isIOSorSafari()) {
-                        // iOS direct download
+                        // iOS-specific download method
                         this.iOSDownload(blob, fileExtension);
                     } else {
-                        // Standard download
+                        // Standard download for other browsers
                         this.standardDownload(blob, fileExtension);
                     }
-                    
-                    // Show success notification
-                    this.showNotification("Video downloaded successfully", 3000);
                     
                     // Cleanup
                     this.chunks = [];
@@ -530,47 +535,150 @@ window.UnityVideoRecorder = {
         }
     },
     
-    // iOS direct download method
+    // Create a minimal pop-up for iOS users with save instructions
+    createIOSSaveModal: function(videoUrl, filename) {
+        const topWindow = this.getTopWindow();
+        
+        // Create container
+        const modal = document.createElement('div');
+        modal.style.position = 'fixed';
+        modal.style.top = '0';
+        modal.style.left = '0';
+        modal.style.width = '100%';
+        modal.style.height = '100%';
+        modal.style.backgroundColor = 'rgba(0,0,0,0.9)';
+        modal.style.zIndex = '2147483647';
+        modal.style.display = 'flex';
+        modal.style.flexDirection = 'column';
+        modal.style.alignItems = 'center';
+        modal.style.justifyContent = 'center';
+        modal.style.padding = '20px';
+        modal.style.boxSizing = 'border-box';
+        
+        // Build modal content
+        modal.innerHTML = `
+            <div style="background-color: white; max-width: 500px; width: 90%; border-radius: 12px; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.5);">
+                <div style="background-color: #BA0C2F; color: white; padding: 15px; text-align: center; font-weight: bold; font-family: Arial, -apple-system;">
+                    Save Your Video
+                    <button id="close-modal-btn" style="position: absolute; right: 15px; top: 10px; background: transparent; border: none; color: white; font-size: 24px; cursor: pointer;">×</button>
+                </div>
+                
+                <div style="padding: 20px; text-align: center;">
+                    <p style="margin-bottom: 15px; font-family: Arial, -apple-system; line-height: 1.4;">
+                        Your video is ready. When the video opens, tap the <strong>Share icon</strong> and select <strong>"Save to Files"</strong> to keep it.
+                    </p>
+                    
+                    <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAKAAAABQCAMAAAC5rivZAAAAolBMVEUAAAD///8jIyNHR0f39/eZmZmJiYmAgIBra2shISHc3Nzr6+vz8/Pp6en5+flycnLb29vQ0NCdnZ2QkJBRUVE6OjqysrLR0dGpqaktLS2hoaHJycnh4eFbW1tMTEw/Pz+1tbV5eXlaWlrFxcVnZ2ciIiLk5ORUVFQ2NjYpKSkaGhqurq4vLy9gYGDBwcG8vLyfn5+MjIx+fn5JSUl2dnampqb///+bMjZLAAAANHRSTlMA/AQy+g3y02OdCY4sFeISQxh2La9PYHBaOBGJVkq5pH9Snplwbltgdgbfxrm1cU6IzK6Yy11NjQAAA/VJREFUaN7tmuly2jAUhQ1m8UpYDJjdBLKRhCRN0n7/d+tdJJGQbWzZTDqTe34AZvzp3HuuJIOD/39oNGfTgfwcGvDr10H7wzQbDeC3zhSO0WsLw34FtOYNDiRHIQoFy+sUTi3Ku9kHYOxYnAbMrw8Yj1cK/KIR4YE4fXb7TtW5OTtgOoZE9O8eYlpRwOU1YJIRcCZiHWAT7gB7A8hrPGYJMFEuGcBrC/h0DZieBOTeZAzMYZAzMN4D5gJswQ/5HsxM3dI70TpIwCBQq0eBKy7lIKMDLuQg+x1wq3vgKsDe1hq8yUF+pAvXA8dZBxhawPzNAD7vA3MDGLaBV9DvNE0LONtD7rKGBtBPVL/e2T1waAFDC3jcAoYWMLCKSzlJclfb0AJ2V9AwpYLzTsJKPeRZwGq1DSzgsE9lwrKAU3mUBX2oLHuLpQVc5gJULFQ3FGACJb/uQyqxVeESZZ4CjInB6H0Ap+YzfO3pwTxL8NQfKoZDBZ6xIDdFbQFnS4GLuCvF/bawlT0oKR4cY2GqPtTu7iCxQpZs0YIr6qBkQXCNJZG5izq0uyItuTigr2TKdq40IHsyP2zfF5pPPMUZuIHXnNQ9OWMDNcU+D+C0J9hnfNXHTQluS6xJrmyPEzAXIG0kAxNuZIEbCvmKK9kDc+wBO7aArLeSYpMVClyXB8VUgBXeXqzYFp5gkJm0cZgA8zXkJBdCYvgxvkDXaL5qJ3IHPKmvBLg4CohtZLu0G3AjGcv24jImG1rnHoxdbUzITnFDFScCnLGRl3WkAJssJLkC9PUdTG2/Uyog2d1K34NoiL/KnmJLgH6Oe41pYNuLnB+ymL7INm+YX2NJo1wB+jrGKtCnXQFuwZQYuE/Fsc1P0LiYHrLm+pX6aqeKN3JBf9SPT0Z8iMRy5mxovfCmFE/xpYpJ2LuRsTJUeH5J66+TcCrAmNcx0C0oQJ9CJgErdw9qkwnQkgCXlG7h1a0f24QMrJTyxpbj9UwfVXGSiAB2HMuYqIAeLx9Z0MxLnC0oTcZ7QTMxLbFaVh1wSGWZ8f6dSKrIUQE9lYB5iyT4d+YwTKSp4nF58Lm6oZTZdLgHr8fq0+1c36wK8EoVs2cJUMVJ/F7FLbJTxdJk6oX5iFm4UMXj36t4DOP3Kl7DSgEOVIzdkIAZJrSp4oocfMTnZUXPHqyKxdcLnBRXZFPFA73g8R3sUxnGZt2Kk2xAfuCmyIaYFHEPlPWdmHDOoIFDGWsnrr06uPH5D5Gu6XG+WcPD6I+UGDvZ8yOKGQvXbVn2Q2i3Z+1vxbAhx38BWUHDfXZY7PkAAAAASUVORK5CYII=" 
+                         style="width: 80px; margin: 10px auto; display: block;">
+                    
+                    <button id="open-video-btn" style="background-color: #BA0C2F; color: white; border: none; padding: 12px 30px; border-radius: 8px; font-size: 16px; font-weight: bold; margin-top: 15px; cursor: pointer; font-family: Arial, -apple-system;">
+                        Open Video Now
+                    </button>
+                    
+                    <p style="margin-top: 20px; margin-bottom: 0; font-size: 14px; color: #777; font-family: Arial, -apple-system;">
+                        The video will also be available for download again if needed
+                    </p>
+                </div>
+            </div>
+        `;
+        
+        topWindow.document.body.appendChild(modal);
+        
+        // Set up button handlers
+        topWindow.document.getElementById('close-modal-btn').addEventListener('click', function() {
+            modal.remove();
+        });
+        
+        topWindow.document.getElementById('open-video-btn').addEventListener('click', function() {
+            // Open the video in a new tab
+            window.open(videoUrl, '_blank');
+            modal.remove();
+            
+            // Create download button that persists on the page
+            this.createPersistentDownloadButton(videoUrl, filename);
+        }.bind(this));
+        
+        return modal;
+    },
+    
+    // Create a persistent download button that stays on the page
+    createPersistentDownloadButton: function(videoUrl, filename) {
+        const topWindow = this.getTopWindow();
+        
+        // Check if a button already exists
+        let existingButton = topWindow.document.getElementById('persistent-video-download');
+        if (existingButton) {
+            existingButton.remove();
+        }
+        
+        // Create the button
+        const button = document.createElement('div');
+        button.id = 'persistent-video-download';
+        button.style.position = 'fixed';
+        button.style.bottom = '20px';
+        button.style.right = '20px';
+        button.style.backgroundColor = '#BA0C2F';
+        button.style.color = 'white';
+        button.style.padding = '12px 15px';
+        button.style.borderRadius = '10px';
+        button.style.fontFamily = 'Arial, -apple-system';
+        button.style.fontSize = '14px';
+        button.style.fontWeight = 'bold';
+        button.style.boxShadow = '0 2px 10px rgba(0,0,0,0.3)';
+        button.style.cursor = 'pointer';
+        button.style.zIndex = '999999';
+        button.style.display = 'flex';
+        button.style.alignItems = 'center';
+        button.style.justifyContent = 'center';
+        button.innerHTML = `
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 8px;">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+            Download Video
+        `;
+        
+        // Add to document
+        topWindow.document.body.appendChild(button);
+        
+        // Store the URL for later use
+        this.lastVideoUrl = videoUrl;
+        
+        // Add click event
+        button.addEventListener('click', function() {
+            // Try to open the video in a new tab
+            window.open(videoUrl, '_blank');
+        });
+    },
+    
+    // iOS-optimized download method
     iOSDownload: function(blob, fileExtension) {
         try {
-            const topWindow = this.getTopWindow();
-            const filename = `sim-recording-${new Date().toISOString().replace(/[:.]/g, '-')}.${fileExtension}`;
+            const filename = `simulation-video-${new Date().toISOString().replace(/[:.]/g, '-')}.${fileExtension}`;
             const url = URL.createObjectURL(blob);
             
-            console.log("Using direct download for iOS");
-            this.showNotification("Downloading video...", 2000);
+            console.log("Using iOS-optimized download method");
             
-            // Try multiple download approaches for iOS
+            // Store the URL for later use
+            this.lastVideoUrl = url;
             
-            // Method 1: Direct navigation to the blob URL
-            // This works on many modern iOS versions
-            topWindow.location.href = url;
+            // Show a notification first
+            this.showNotification("Video ready! Opening save instructions...", 2000);
             
-            // Method 2: Also try creating a download link
-            // Some versions of iOS may handle this
-            setTimeout(() => {
-                try {
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = filename;
-                    a.style.display = 'none';
-                    topWindow.document.body.appendChild(a);
-                    a.click();
-                    
-                    setTimeout(() => {
-                        if (a.parentNode) {
-                            topWindow.document.body.removeChild(a);
-                        }
-                    }, 100);
-                } catch (e) {
-                    console.log("Alternative download method also failed:", e);
-                }
-            }, 500);
+            // Create the iOS-specific save modal with instructions
+            this.createIOSSaveModal(url, filename);
             
-            // Clean up the URL object after a delay
-            setTimeout(() => {
-                URL.revokeObjectURL(url);
-            }, 5000);
+            // Create a hidden backup download link
+            const downloadLink = document.createElement('a');
+            downloadLink.style.display = 'none';
+            downloadLink.href = url;
+            downloadLink.download = filename;
+            
+            // Add to document
+            document.body.appendChild(downloadLink);
+            
+            // Do not auto-click for iOS as it causes issues, let user click from the modal
             
         } catch (err) {
             console.error("iOS download error:", err);
@@ -581,21 +689,26 @@ window.UnityVideoRecorder = {
     // Standard download for Chrome/Firefox/etc
     standardDownload: function(blob, fileExtension) {
         const url = URL.createObjectURL(blob);
+        const filename = `simulation-video-${new Date().toISOString().replace(/[:.]/g, '-')}.${fileExtension}`;
+        
+        // Store the URL for later recovery if needed
+        this.lastVideoUrl = url;
+        
         const a = document.createElement('a');
         a.style.display = 'none';
         a.href = url;
-        a.download = `sim-recording-${new Date().toISOString().replace(/[:.]/g, '-')}.${fileExtension}`;
+        a.download = filename;
         document.body.appendChild(a);
         a.click();
         
         // Cleanup
         setTimeout(() => {
             document.body.removeChild(a);
-            URL.revokeObjectURL(url);
+            // Don't revoke URL in case user needs it again
         }, 100);
     },
     
-    // Method to download recordings
+    // Method to download recordings (can be called from outside)
     downloadAllRecordings: function() {
         if (this.isRecording) {
             this.stopRecording();
@@ -613,10 +726,17 @@ window.UnityVideoRecorder = {
             const blob = new Blob(this.chunks, { type: mimeType });
             
             // Use appropriate download method
-            if (this.isIOSorSafari()) {
+            if (this.isIOS()) {
                 this.iOSDownload(blob, fileExtension);
             } else {
                 this.standardDownload(blob, fileExtension);
+            }
+        } else if (this.lastVideoUrl) {
+            // If we have a previous video URL but no chunks, use that
+            if (this.isIOS()) {
+                window.open(this.lastVideoUrl, '_blank');
+            } else {
+                window.location.href = this.lastVideoUrl;
             }
         } else {
             this.showNotification('No video recordings available', 3000);
