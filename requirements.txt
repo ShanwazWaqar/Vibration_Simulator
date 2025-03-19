@@ -65,6 +65,7 @@ waitress==3.0.2
 wcwidth==0.2.13
 websockets==15.0.1
 Werkzeug==2.0.3
+wheel==0.45.1
 wsproto==1.2.0
 xgboost==3.0.0
 zope.event==5.0
