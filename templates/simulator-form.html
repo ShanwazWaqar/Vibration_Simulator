@@ -258,15 +258,15 @@
         /* Shape selection */
         .shapes-grid {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 16px;
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+            gap: 10px;
             margin-bottom: 16px;
         }
         
         .shape-card {
             background-color: white;
-            border-radius: 10px;
-            padding: 16px;
+            border-radius: 8px;
+            padding: 10px;
             text-align: center;
             cursor: pointer;
             transition: all 0.3s ease;
@@ -283,52 +283,38 @@
             background-color: rgba(186, 12, 47, 0.05);
         }
         
+        /* Styles for the icon *container* */
         .shape-icon {
             margin: 0 auto;
-            width: 36px;
-            height: 36px;
+            width: 30px; /* Container size */
+            height: 30px;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-bottom: 8px;
+            margin-bottom: 6px;
         }
         
+        /* Generic sizing for icons *within* the container (excluding sphere) */
+        .rectangle-icon div,
+        .quarter-sphere-icon,
+        .half-sphere-icon, /* Kept for reference */
+        .pyramid-icon { /* Kept for reference */
+            width: 20px;
+            height: 20px;
+        }
+        
+        /* Specific sphere styles */
         .sphere-icon {
-            width: 25px;
-            height: 25px;
+            width: 20px; /* Explicit width */
+            height: 20px; /* Explicit height */
             background-color: var(--primary);
-            border-radius: 50%;
-        }
-        
-        .rectangle-icon {
-            display: flex;
-        }
-        
-        .rect1, .rect2 {
-            width: 7px;
-            height: 25px;
-            margin: 0 2px;
-        }
-        
-        .rect1 {
-            background-color: var(--primary);
-        }
-        
-        .rect2 {
-            background-color: var(--accent);
-        }
-        
-        .quarter-sphere-icon {
-            width: 25px;
-            height: 25px;
-            background-color: var(--primary);
-            border-radius: 25px 0 0 0;
+            border-radius: 50%; /* Make it a circle */
         }
         
         .shape-name {
-            font-size: 13px;
-            font-weight: 600;
-            margin-bottom: 8px;
+            font-size: 12px;
+            font-weight: 500;
+            margin-bottom: 6px;
         }
         
         .shape-count {
@@ -336,8 +322,8 @@
             text-align: center;
             border: 1px solid #E2E8F0;
             border-radius: 6px;
-            padding: 6px;
-            font-size: 13px;
+            padding: 4px;
+            font-size: 12px;
             transition: all 0.2s ease;
         }
         
@@ -833,6 +819,152 @@
                 padding: 12px;
             }
         }
+        
+        /* Special Agent Toggle Styles */
+        .special-agents-section {
+            background-color: var(--light-gray);
+            border-radius: var(--border-radius);
+            padding: 16px;
+            margin-top: 16px;
+        }
+        
+        .toggle-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .toggle-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 8px;
+            background-color: white;
+            border-radius: 8px;
+            border: 1px solid #E2E8F0;
+        }
+        
+        .toggle-label {
+            display: flex;
+            align-items: center;
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        .toggle-input {
+            display: none;
+        }
+        
+        .toggle-slider {
+            position: relative;
+            display: inline-block;
+            width: 40px;
+            height: 20px;
+            background-color: #CBD5E1;
+            border-radius: 20px;
+            margin-right: 8px;
+            transition: all 0.3s ease;
+        }
+        
+        .toggle-slider:before {
+            content: '';
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background-color: white;
+            top: 2px;
+            left: 2px;
+            transition: all 0.3s ease;
+        }
+        
+        .toggle-input:checked + .toggle-slider {
+            background-color: var(--primary);
+        }
+        
+        .toggle-input:checked + .toggle-slider:before {
+            transform: translateX(20px);
+        }
+        
+        .toggle-text {
+            font-size: 14px;
+            font-weight: 500;
+            color: #1E293B;
+        }
+        
+        /* New Shape Icons */
+        .half-sphere-icon {
+            width: 20px;
+            height: 20px;
+            background-color: var(--primary);
+            border-radius: 20px 20px 0 0;
+        }
+        
+        .pyramid-icon {
+            width: 0;
+            height: 0;
+            border-left-width: 10px;
+            border-right-width: 10px;
+            border-bottom-width: 16px;
+            border-bottom-color: var(--primary);
+        }
+        
+        /* Christian Cross Icon Style */
+        .cross-icon {
+            position: relative;
+            width: 20px;
+            height: 20px;
+        }
+        
+        .cross-icon::before,
+        .cross-icon::after {
+            content: '';
+            position: absolute;
+            background-color: var(--primary);
+            border-radius: 1px;
+        }
+        
+        .cross-icon::before {
+            width: 4px;
+            height: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        
+        .cross-icon::after {
+            width: 80%;
+            height: 4px;
+            top: 30%;
+            left: 10%;
+            transform: translateY(-50%);
+        }
+        
+        .rectangle-icon {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .rect1, .rect2 {
+            width: 6px; /* Adjusted width for better visibility */
+            height: 20px; /* Adjusted height to fit within the container */
+            margin: 0 1px; /* Reduced margin for better spacing */
+        }
+        
+        .rect1 {
+            background-color: var(--primary);
+        }
+        
+        .rect2 {
+            background-color: var(--accent);
+        }
+        
+        .quarter-sphere-icon {
+            width: 20px; /* Match other icon sizes */
+            height: 20px;
+            background-color: var(--primary);
+            border-radius: 0 20px 0 0; /* Quarter circle */
+        }
     </style>
 </head>
 <body>
@@ -989,20 +1121,65 @@
                                         <div class="shape-name">Quarter Spheres</div>
                                         <input type="number" id="quartersphereCount" class="shape-count" value="0" min="0" max="10">
                                     </div>
+
+                                    <div class="shape-card" id="shape-halfsphere-card">
+                                        <input type="radio" id="shape-halfsphere" name="shape" value="halfsphere" class="hidden">
+                                        <div class="shape-icon">
+                                            <div class="cross-icon"></div>
+                                        </div>
+                                        <div class="shape-name">Cross Agents</div>
+                                        <input type="number" id="halfsphereCount" class="shape-count" value="0" min="0" max="10">
+                                    </div>
+
+                                    <!-- Commented out Pyramid card -->
+                                    <!-- 
+                                    <div class="shape-card" id="shape-pyramid-card">
+                                        <input type="radio" id="shape-pyramid" name="shape" value="pyramid" class="hidden">
+                                        <div class="shape-icon">
+                                            <div class="pyramid-icon"></div>
+                                        </div>
+                                        <div class="shape-name">Pyramids</div>
+                                        <input type="number" id="pyramidCount" class="shape-count" value="0" min="0" max="10">
+                                    </div>
+                                    -->
+                                </div>
+                                
+                                <!-- Special Agent Toggles -->
+                                <div class="special-agents-section mt-4">
+                                    <div class="section-header">
+                                        <div class="icon"></div>
+                                        <h3>Special Agents</h3>
+                                    </div>
+                                    
+                                    <div class="toggle-container">
+                                        <div class="toggle-item">
+                                            <label class="toggle-label">
+                                                <input type="checkbox" id="uga-toggle" class="toggle-input">
+                                                <span class="toggle-slider"></span>
+                                                <span class="toggle-text">UGA Agent</span>
+                                            </label>
+                                        </div>
+                                        
+                                        <div class="toggle-item">
+                                            <label class="toggle-label">
+                                                <input type="checkbox" id="airfoil-toggle" class="toggle-input">
+                                                <span class="toggle-slider"></span>
+                                                <span class="toggle-text">Airfoil Agent</span>
+                                            </label>
+                                        </div>
+                                    </div>
                                 </div>
                                 
                                 <div class="coming-soon">
                                     <div class="coming-soon-label">Coming Soon:</div>
                                     <div class="chips">
-                                        <span class="chip">Airfoils</span>
                                         <span class="chip">Half Spheres</span>
                                         <span class="chip">Pyramids</span>
                                     </div>
                                 </div>
                                 
-                                <input type="hidden" id="airfoilCount" name="airfoilCount" value="0">
-                                <input type="hidden" id="halfsphereCount" name="halfsphereCount" value="0">
-                                <input type="hidden" id="pyramidCount" name="pyramidCount" value="0">
+                                <!-- Commented out hidden inputs for shapes no longer displayed or handled -->
+                                <!-- <input type="hidden" id="pyramidCount" name="pyramidCount" value="0"> -->
                             </div>
                             
                             <!-- Start Button -->
@@ -1138,6 +1315,9 @@
             window.addEventListener('resize', function() {
                 handleResponsiveLayout();
             });
+            
+            // Setup special agent toggles
+            setupSpecialAgentToggles();
         });
         
         // Function to handle responsive layout
@@ -1383,37 +1563,58 @@
             const shapeDisplay = document.getElementById('shape-display');
             const shapeCountDisplay = document.getElementById('shape-count-display');
             
-            // Collect all shape counts
+            // Collect all shape counts (excluding Pyramid)
             const shapeTypes = [
                 { id: 'sphere', name: 'Sphere' }, 
                 { id: 'rectangle', name: 'Rectangle' }, 
                 { id: 'quartersphere', name: 'Quarter Sphere' },
-                { id: 'airfoil', name: 'Airfoil' },
-                { id: 'halfsphere', name: 'Half Sphere' },
-                { id: 'pyramid', name: 'Pyramid' }
+                { id: 'halfsphere', name: 'Cross Agents' },
+                // { id: 'pyramid', name: 'Pyramid' } // Pyramid removed
+                // Add UGA if needed, depending on display requirements
             ];
             
             const shapeCounts = shapeTypes.map(shape => {
-                const count = parseInt(document.getElementById(`${shape.id}Count`).value) || 0;
+                const inputElement = document.getElementById(`${shape.id}Count`);
+                const count = inputElement ? (parseInt(inputElement.value) || 0) : 0;
                 return { type: shape.name, count: count };
             });
+
+            // Add special agents if they are active
+            const ugaToggle = document.getElementById('uga-toggle');
+            const airfoilToggle = document.getElementById('airfoil-toggle');
+            let activeSpecialAgents = [];
+            if (ugaToggle && ugaToggle.checked) {
+                activeSpecialAgents.push({ type: 'UGA Agent', count: 1 }); // Count is 1 if active
+            }
+            if (airfoilToggle && airfoilToggle.checked) {
+                activeSpecialAgents.push({ type: 'Airfoil Agent', count: 1 }); // Count is 1 if active
+            }
             
-            // Calculate total shape count
+            // Calculate total shape count (only non-special shapes)
             const totalShapeCount = shapeCounts.reduce((sum, shape) => sum + shape.count, 0);
             
             // Filter out zero-count shapes
             const activeShapes = shapeCounts.filter(shape => shape.count > 0);
             
-            // Format shape display
-            let shapeText = activeShapes.length > 0 
-                ? activeShapes.map(shape => `${shape.count} ${shape.type}${shape.count !== 1 ? 's' : ''}`).join(', ')
-                : 'No shapes selected';
+            // Format shape display including special agents
+            let shapeText = activeShapes.map(shape => `${shape.count} ${shape.type}${shape.count !== 1 ? 's' : ''}`).join(', ');
+            let specialAgentText = activeSpecialAgents.map(agent => agent.type).join(', ');
+
+            if (shapeText && specialAgentText) {
+                shapeDisplay.textContent = `${shapeText}, ${specialAgentText}`;
+            } else if (shapeText) {
+                shapeDisplay.textContent = shapeText;
+            } else if (specialAgentText) {
+                shapeDisplay.textContent = specialAgentText;
+            } else {
+                shapeDisplay.textContent = 'No shapes selected';
+            }
             
-            shapeDisplay.textContent = shapeText;
+            // Display total count of non-special shapes
             shapeCountDisplay.textContent = totalShapeCount;
             
-            // Update shape configuration details
-            updateShapeConfigDetails(shapeCounts);
+            // Update shape configuration details (Combine regular and special)
+            updateShapeConfigDetails([...activeShapes, ...activeSpecialAgents]);
             
             // Amplitude and Frequency display
             const ampDisplay = document.getElementById('amplitude-display');
@@ -1434,36 +1635,31 @@
             }
         }
         
-        // Update shape configuration details
-        function updateShapeConfigDetails(shapeCounts) {
-            // Get the shape configuration grid
+        // Modify updateShapeConfigDetails if needed to handle flag-based agents
+        function updateShapeConfigDetails(activeAgents) { // Renamed parameter for clarity
             const shapeConfigGrid = document.getElementById('shape-config-grid');
             if (!shapeConfigGrid) return;
             
-            // Clear existing shape configuration
             shapeConfigGrid.innerHTML = '';
             
-            // Create configuration items for each shape
-            shapeCounts.forEach(shape => {
-                if (shape.count > 0) {
+            activeAgents.forEach(agent => {
+                // Only add if count > 0 OR if it's a special agent (count might be 1 conceptually)
+                if (agent.count > 0) { 
                     const configItem = document.createElement('div');
-                    configItem.classList.add('config-item', 'highlight-value');
+                    configItem.classList.add('config-item'); // Removed highlight-value temporarily
                     
                     const label = document.createElement('div');
                     label.classList.add('config-label');
-                    label.textContent = shape.type + 's';
+                    // Adjust label for pluralization or agent name
+                    label.textContent = (agent.type.endsWith('Agent') || agent.count === 1) ? agent.type : agent.type + 's';
                     
                     const value = document.createElement('div');
                     value.classList.add('config-value');
-                    value.textContent = shape.count;
+                    // Display count for regular shapes, 'Active' for special agents?
+                    value.textContent = agent.type.endsWith('Agent') ? 'Active' : agent.count;
                     
                     configItem.appendChild(label);
                     configItem.appendChild(value);
-                    
-                    // Add animation
-                    configItem.addEventListener('animationend', () => {
-                        configItem.classList.remove('highlight-value');
-                    });
                     
                     shapeConfigGrid.appendChild(configItem);
                 }
@@ -1485,14 +1681,14 @@
                 sphereCount: document.getElementById('sphereCount').value,
                 rectangleCount: document.getElementById('rectangleCount').value,
                 quartersphereCount: document.getElementById('quartersphereCount').value,
-                airfoilCount: document.getElementById('airfoilCount').value,
                 halfsphereCount: document.getElementById('halfsphereCount').value,
-                pyramidCount: document.getElementById('pyramidCount').value
+                // pyramidCount removed
+                uga_flag: document.getElementById('uga-toggle').checked,
+                airfoil_flag: document.getElementById('airfoil-toggle').checked,
             };
 
             lastStartedConfiguration = formData;
             updateConfigDisplay();
-            // updateConfigDisplayFromStartedConfig();
             
             // Show loading state for the button
             const startButton = document.getElementById('startButton');
@@ -1512,14 +1708,21 @@
             
             // Determine the backend URL
             let backendURL;
-            if (window.location.protocol === 'https:') {
-                backendURL = 'https://' + window.location.hostname.replace('www.', '') + '/';
+            const hostname = window.location.hostname;
+            const port = window.location.port;
+
+            if (hostname === 'localhost' || hostname === '127.0.0.1') {
+                // Handle local development
+                backendURL = `http://${hostname}:${port || '5000'}`;
+                console.log("Using local backend URL:", backendURL);
             } else {
-                backendURL = 'http://' + window.location.hostname.replace('www.', '') + '/';
-            }
-            
-            if (window.location.hostname.includes('localhost')) {
-                backendURL = 'http://localhost:5000';
+                // Handle production deployment
+                if (window.location.protocol === 'https:') {
+                    backendURL = 'https://' + hostname.replace('www.', '') + '/';
+                } else {
+                    backendURL = 'http://' + hostname.replace('www.', '') + '/';
+                }
+                console.log("Using production backend URL:", backendURL);
             }
             
             // Send parameters to the server
@@ -1565,59 +1768,14 @@
             })
             .catch(error => {
                 console.error('Error:', error);
-                showError(error.message);
+                console.error('Attempted to connect to:', `${backendURL}/set-data`);
+                console.error('With data:', JSON.stringify(formData));
+                showError(error.message || "Connection failed. Check the console for details.");
                 
                 // Reset button state
                 startButton.innerHTML = originalButtonContent;
                 startButton.disabled = false;
             });
-        }
-        
-        // Update configuration display when simulation starts
-        function updateConfigDisplayFromStartedConfig() {
-            if (!lastStartedConfiguration) return;
-
-            const config = lastStartedConfiguration;
-
-            // Update Spring Constant and Bond Force
-            document.getElementById('sc-display').textContent = config.SC;
-            document.getElementById('bf-display').textContent = config.BF;
-
-            // Determine active shape and shape count
-            let activeShape = '';
-            let shapeCount = 0;
-
-            // Count all active shapes
-            const shapes = [];
-            if (parseInt(config.sphereCount) > 0) {
-                shapes.push(`${config.sphereCount} Sphere${config.sphereCount > 1 ? 's' : ''}`);
-                shapeCount += parseInt(config.sphereCount);
-            }
-            if (parseInt(config.rectangleCount) > 0) {
-                shapes.push(`${config.rectangleCount} Rectangle${config.rectangleCount > 1 ? 's' : ''}`);
-                shapeCount += parseInt(config.rectangleCount);
-            }
-            if (parseInt(config.quartersphereCount) > 0) {
-                shapes.push(`${config.quartersphereCount} Quarter Sphere${config.quartersphereCount > 1 ? 's' : ''}`);
-                shapeCount += parseInt(config.quartersphereCount);
-            }
-
-            activeShape = shapes.length > 0 ? shapes.join(', ') : 'No shapes selected';
-
-            document.getElementById('shape-display').textContent = activeShape;
-            document.getElementById('shape-count-display').textContent = shapeCount;
-
-            // Update Amplitude and Frequency
-            const ampDisplay = document.getElementById('amplitude-display');
-            const freqDisplay = document.getElementById('frequency-display');
-
-            if (ampDisplay) {
-                ampDisplay.textContent = `${parseFloat(config.AmpX).toFixed(1)}, ${parseFloat(config.AmpY).toFixed(1)}, ${parseFloat(config.AmpZ).toFixed(1)}`;
-            }
-
-            if (freqDisplay) {
-                freqDisplay.textContent = `${parseFloat(config.freqX).toFixed(1)}, ${parseFloat(config.freqY).toFixed(1)}, ${parseFloat(config.freqZ).toFixed(1)}`;
-            }
         }
         
         // Show error message if connection fails
@@ -1698,6 +1856,61 @@
             // Trigger input event to update everything
             const event = new Event('input', { bubbles: true });
             input.dispatchEvent(event);
+        }
+        
+        // Setup special agent toggles
+        function setupSpecialAgentToggles() {
+            const ugaToggle = document.getElementById('uga-toggle');
+            const airfoilToggle = document.getElementById('airfoil-toggle');
+            const shapeCards = document.querySelectorAll('.shape-card');
+            const shapeCountInputs = document.querySelectorAll('input[id$="Count"]');
+
+            function disableAllShapes() {
+                shapeCards.forEach(card => {
+                    card.classList.remove('active');
+                    card.style.opacity = '0.5';
+                    card.style.pointerEvents = 'none';
+                });
+                
+                shapeCountInputs.forEach(input => {
+                    input.value = '0';
+                    input.disabled = true;
+                });
+            }
+
+            function enableAllShapes() {
+                shapeCards.forEach(card => {
+                    card.style.opacity = '1';
+                    card.style.pointerEvents = 'auto';
+                });
+                
+                shapeCountInputs.forEach(input => {
+                    input.disabled = false;
+                });
+            }
+
+            function handleToggle(toggle, otherToggle) {
+                toggle.addEventListener('change', function() {
+                    if (this.checked) {
+                        // Disable other toggle
+                        otherToggle.checked = false;
+                        otherToggle.dispatchEvent(new Event('change'));
+                        
+                        // Disable all other shapes
+                        disableAllShapes();
+                    } else {
+                        // Enable all shapes
+                        enableAllShapes();
+                    }
+                    
+                    // Update configuration display
+                    updateConfigDisplay();
+                });
+            }
+
+            // Setup both toggles
+            handleToggle(ugaToggle, airfoilToggle);
+            handleToggle(airfoilToggle, ugaToggle);
         }
     </script>
 </body>

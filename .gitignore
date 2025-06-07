@@ -70,3 +70,7 @@ yarn-error.log*
 !/static/Try_web_build/Build/Try_web_build.wasm
 !/static/Try_web_build/Build/Try_web_build.framework.js
 !/static/Try_web_build/Build/Try_web_build.data
+# Elastic Beanstalk Files
+.elasticbeanstalk/*
+!.elasticbeanstalk/*.cfg.yml
+!.elasticbeanstalk/*.global.yml
