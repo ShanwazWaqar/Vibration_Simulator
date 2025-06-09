@@ -11,12 +11,24 @@
       http-equiv="Content-Security-Policy"
       content="upgrade-insecure-requests"
     />
+    <!-- CRITICAL: These flags must be placed BEFORE loading any recorder scripts -->
+    <script>
+      // This global flag prevents auto-initialization in both recorders
+      window.DISABLE_AUTO_RECORDER_INIT = true;
+      
+      // This ensures we only have one recorder initialized
+      window.RECORDER_INITIALIZED = false;
+    </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <!-- Load recorder dependencies first -->
     <script src="/static/js/FindGameObjects.js"></script>
+    <!-- Then load base recorders -->
+    <script src="/static/js/UnityCanvasRecorder.js"></script>
     <script src="/static/js/UnityVideoRecorder.js"></script>
-    <script src="/static/js/MobileRecordingHelper.js"></script>
+    <!-- Finally load the unified solution -->
+    <script src="/static/js/UnifiedRecorder.js"></script>
     <title>4D Printing Simulator</title>
     <link
       href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
@@ -588,7 +600,7 @@
               <circle class="spinner-path" cx="25" cy="25" r="20" fill="none" stroke-width="5"></circle>
             </svg>
           </div>
-          <!-- <div class="notification-message">Processing. Please wait...</div> -->
+          <div class="notification-message">Processing. Please wait...</div>
         </div>
       </div>
 
@@ -606,9 +618,163 @@
       var isIframe = window !== window.parent;
       var isPaused = false;
 
+      // Recorder globals
+      var singleRecorder = null;
+      var isRecording = false;
+      var recordingTimer = null;
+      var recordingSeconds = 0;
+
       let screenshotCount = 0;
       const screenshots = [];
       let currentGameManagerName = ""; // Store the current game manager name
+
+      // Initialize the single recorder instance
+      function initializeRecorder() {
+        // If a recorder is already initialized, return it
+        if (singleRecorder !== null) {
+          console.log("Using existing recorder instance");
+          return singleRecorder;
+        }
+        
+        // If global initialization flag is set, don't initialize again
+        if (window.RECORDER_INITIALIZED) {
+          console.log("A recorder is already initialized elsewhere");
+          return window.unifiedRecorder || window.unityVideoRecorder;
+        }
+
+        try {
+          // Detect if we're on a mobile device
+          const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+          console.log(`Device detected as: ${isMobile ? 'mobile' : 'desktop'}`);
+
+          // Create the unified recorder with appropriate settings
+          singleRecorder = new UnifiedRecorder({
+            canvasSelector: '#unity-canvas',
+            fps: 30,
+            fileName: 'simulation-recording',
+            preferCanvasRecorder: isMobile, // Force canvas recorder on mobile
+            autoInitialize: true
+          });
+          
+          // Store globally
+          window.unifiedRecorder = singleRecorder;
+          
+          // Set initialization flag
+          window.RECORDER_INITIALIZED = true;
+
+          console.log("Unified recorder initialized successfully");
+
+          // Set up recording events
+          setupRecordingEvents();
+
+          // Make sure older recorders don't auto-start
+          if (window.unityVideoRecorder) {
+            console.log("Disabling legacy video recorder");
+            window.unityVideoRecorder.autoStart = false;
+          }
+
+          return singleRecorder;
+        } catch (error) {
+          console.error("Error initializing recorder:", error);
+          return null;
+        }
+      }
+
+      // Set up recording event handlers
+      function setupRecordingEvents() {
+        if (!singleRecorder) return;
+
+        const recordingStatus = document.getElementById("recording-status");
+        const recordingTimeElement = document.querySelector(".recording-time");
+
+        // Set up event handlers for recording state changes
+        singleRecorder.onRecordingStart = function() {
+          isRecording = true;
+          
+          if (recordingStatus) {
+            recordingStatus.style.display = "flex";
+          }
+          
+          // Reset and start timer
+          recordingSeconds = 0;
+          if (recordingTimeElement) {
+            recordingTimeElement.textContent = "00:00";
+          }
+          
+          // Clear any existing timer
+          if (recordingTimer) {
+            clearInterval(recordingTimer);
+          }
+          
+          // Start new timer
+          recordingTimer = setInterval(() => {
+            recordingSeconds++;
+            if (recordingTimeElement) {
+              const minutes = Math.floor(recordingSeconds / 60).toString().padStart(2, '0');
+              const seconds = (recordingSeconds % 60).toString().padStart(2, '0');
+              recordingTimeElement.textContent = `${minutes}:${seconds}`;
+            }
+          }, 1000);
+          
+          console.log("Recording started");
+        };
+
+        singleRecorder.onRecordingStop = function() {
+          isRecording = false;
+          
+          if (recordingStatus) {
+            recordingStatus.style.display = "none";
+          }
+          
+          // Stop timer
+          if (recordingTimer) {
+            clearInterval(recordingTimer);
+            recordingTimer = null;
+          }
+          
+          console.log("Recording stopped");
+        };
+      }
+
+      // Start recording function
+      function startRecording() {
+        // Get or initialize recorder
+        const recorder = singleRecorder || initializeRecorder();
+        
+        if (recorder && !isRecording) {
+          try {
+            console.log("Starting recording");
+            recorder.startRecording();
+            return true;
+          } catch (error) {
+            console.error("Error starting recording:", error);
+            return false;
+          }
+        } else if (isRecording) {
+          console.log("Already recording");
+          return true;
+        } else {
+          console.error("Recorder not available");
+          return false;
+        }
+      }
+
+      // Stop recording function
+      function stopRecording() {
+        if (singleRecorder && isRecording) {
+          try {
+            console.log("Stopping recording");
+            singleRecorder.stopRecording();
+            return true;
+          } catch (error) {
+            console.error("Error stopping recording:", error);
+            return false;
+          }
+        } else {
+          console.log("No active recording to stop");
+          return false;
+        }
+      }
 
       // Function to capture screenshot directly from Unity
       function captureUnityScreenshot() {
@@ -747,10 +913,12 @@
         const notificationContainer = document.getElementById('notification-container');
         const notificationMessage = document.querySelector('.notification-message');
         
-        if (!notificationContainer || !notificationMessage) return;
+        if (!notificationContainer) return;
         
-        // Update message
-        notificationMessage.textContent = message;
+        // Update message if element exists
+        if (notificationMessage) {
+          notificationMessage.textContent = message;
+        }
         
         // Show notification
         notificationContainer.classList.remove('notification-hidden');
@@ -821,32 +989,6 @@
           }
         }, 1000);
       }
-
-      // Initialize when the page loads
-      document.addEventListener("DOMContentLoaded", function () {
-        // Hide download button initially
-        const downloadBtn = document.getElementById("download-all-button");
-        if (downloadBtn) {
-          downloadBtn.style.display = "none";
-          downloadBtn.addEventListener("click", downloadAllScreenshots);
-        }
-
-        // Setup screenshot button
-        const screenshotBtn = document.getElementById("screenshot-button");
-        if (screenshotBtn) {
-          screenshotBtn.addEventListener("click", captureUnityScreenshot);
-        }
-
-        // Mobile-friendly touch handlers if needed
-        if ("ontouchstart" in window) {
-          if (downloadBtn) {
-            downloadBtn.addEventListener("touchend", downloadAllScreenshots);
-          }
-          if (screenshotBtn) {
-            screenshotBtn.addEventListener("touchend", captureUnityScreenshot);
-          }
-        }
-      });
 
       // Update the screenshot count display
       function updateScreenshotStatus() {
@@ -1075,6 +1217,7 @@
         });
       }
 
+      // Modified updateStatus function with recording integration
       function updateStatus(status) {
         if (!statusText || !statusDot) return;
 
@@ -1084,12 +1227,23 @@
         switch (status) {
           case "Running":
             statusDot.style.backgroundColor = "#10B981"; // Green
+            // Start recording when simulation is running
+            if (!isRecording) {
+              // Use a slight delay to ensure Unity is ready
+              setTimeout(() => {
+                startRecording();
+              }, 500);
+            }
             break;
           case "Paused":
             statusDot.style.backgroundColor = "#F59E0B"; // Amber
             break;
           case "Stopped":
             statusDot.style.backgroundColor = "#EF4444"; // Red
+            // Stop recording when simulation is stopped
+            if (isRecording) {
+              stopRecording();
+            }
             break;
           case "Initializing...":
             statusDot.style.backgroundColor = "#BA0C2F"; // UGA Red
@@ -1159,6 +1313,11 @@
 
               // Set up control buttons with the correct GameObject name
               setupControlButtons(unityInstance, gameManagerName);
+
+              // Initialize the recorder after Unity is loaded
+              setTimeout(() => {
+                initializeRecorder();
+              }, 1000);
 
               // Auto-start the simulation by fetching parameters
               fetchSimulationParameters(unityInstance, gameManagerName);
@@ -1297,63 +1456,62 @@
         });
         
         // Stop button
-        // Stop button
-const stopButton = document.getElementById("stop-button");
-stopButton.addEventListener("click", function () {
-  if (unityInstance) {
-    try {
-      // Show processing notification
-      showNotification('Processing. Please wait...', 2000);
-      
-      // IMPORTANT: Stop any active recording first
-      if (window.unityVideoRecorder && window.unityVideoRecorder.isRecording) {
-        console.log("Stopping active recording");
-        window.unityVideoRecorder.stopRecording();
-      }
-      
-      // Set simulation state variables
-      unityInstance.SendMessage(gameManagerName, "pauseF", "true");
-      unityInstance.SendMessage(gameManagerName, "prevStateF", "true");
-      unityInstance.SendMessage(
-        gameManagerName,
-        "timesStateSetF",
-        "true"
-      );
-      unityInstance.SendMessage(
-        gameManagerName,
-        "simulationRunning",
-        "false"
-      );
+        const stopButton = document.getElementById("stop-button");
+        stopButton.addEventListener("click", function () {
+          if (unityInstance) {
+            try {
+              // Show processing notification
+              showNotification('Processing. Please wait...', 2000);
+              
+              // IMPORTANT: Stop any active recording first
+              if (isRecording) {
+                console.log("Stopping active recording from stop button");
+                stopRecording();
+              }
+              
+              // Set simulation state variables
+              unityInstance.SendMessage(gameManagerName, "pauseF", "true");
+              unityInstance.SendMessage(gameManagerName, "prevStateF", "true");
+              unityInstance.SendMessage(
+                gameManagerName,
+                "timesStateSetF",
+                "true"
+              );
+              unityInstance.SendMessage(
+                gameManagerName,
+                "simulationRunning",
+                "false"
+              );
 
-      // Call the handler for UI updates
-      unityInstance.SendMessage(gameManagerName, "HandleStopButton");
+              // Call the handler for UI updates
+              unityInstance.SendMessage(gameManagerName, "HandleStopButton");
 
-      // Update local state
-      isPaused = true;
+              // Update local state
+              isPaused = true;
 
-      // Hide pause button and screenshot button
-      pauseButton.style.display = "none";
-      const screenshotButton =
-        document.getElementById("screenshot-button");
-      if (screenshotButton) {
-        screenshotButton.style.display = "none";
-      }
+              // Hide pause button and screenshot button
+              pauseButton.style.display = "none";
+              const screenshotButton =
+                document.getElementById("screenshot-button");
+              if (screenshotButton) {
+                screenshotButton.style.display = "none";
+              }
 
-      // Disable stop button
-      stopButton.disabled = true;
+              // Disable stop button
+              stopButton.disabled = true;
 
-      // Take a screenshot and show download button
-      takeScreenshotOnStop();
+              // Take a screenshot and show download button
+              takeScreenshotOnStop();
 
-      updateStatus("Stopped");
-      console.log("Simulation stopped");
-    } catch (error) {
-      console.error("Error stopping simulation:", error);
-      // Show error notification for any other errors
-      showNotification('Error stopping simulation.', 3000);
-    }
-  }
-});
+              updateStatus("Stopped");
+              console.log("Simulation stopped");
+            } catch (error) {
+              console.error("Error stopping simulation:", error);
+              // Show error notification for any other errors
+              showNotification('Error stopping simulation.', 3000);
+            }
+          }
+        });
 
         // Fullscreen button
         const fullscreenButton = document.getElementById("fullscreen-button");
@@ -1520,6 +1678,34 @@ stopButton.addEventListener("click", function () {
           });
       }
 
+      // Initialize when the page loads
+      document.addEventListener("DOMContentLoaded", function () {
+        console.log("DOM Content Loaded - setting up UI");
+        
+        // Hide download button initially
+        const downloadBtn = document.getElementById("download-all-button");
+        if (downloadBtn) {
+          downloadBtn.style.display = "none";
+          downloadBtn.addEventListener("click", downloadAllScreenshots);
+        }
+
+        // Setup screenshot button
+        const screenshotBtn = document.getElementById("screenshot-button");
+        if (screenshotBtn) {
+          screenshotBtn.addEventListener("click", captureUnityScreenshot);
+        }
+
+        // Mobile-friendly touch handlers if needed
+        if ("ontouchstart" in window) {
+          if (downloadBtn) {
+            downloadBtn.addEventListener("touchend", downloadAllScreenshots);
+          }
+          if (screenshotBtn) {
+            screenshotBtn.addEventListener("touchend", captureUnityScreenshot);
+          }
+        }
+      });
+
       // Handle resize and orientation changes
       window.addEventListener("resize", updateCanvasSize);
       window.addEventListener("orientationchange", function () {
@@ -1535,7 +1721,7 @@ stopButton.addEventListener("click", function () {
           if (document.hidden) {
             try {
               gameInstance.SendMessage(
-                "GameManager",
+                currentGameManagerName || "GameManager",
                 "OnApplicationPause",
                 "true"
               );
@@ -1546,7 +1732,7 @@ stopButton.addEventListener("click", function () {
             updateCanvasSize();
             try {
               gameInstance.SendMessage(
-                "GameManager",
+                currentGameManagerName || "GameManager",
                 "OnApplicationPause",
                 "false"
               );
@@ -1561,90 +1747,24 @@ stopButton.addEventListener("click", function () {
       document.addEventListener("gesturestart", function (e) {
         e.preventDefault();
       });
-
-
       
-// Initialize the video recorder after Unity loads
-document.addEventListener("DOMContentLoaded", function() {
-  let recordingStarted = false;
-  
-  // Watch for status changes to automatically start recording
-  const originalUpdateStatus = window.updateStatus || function() {};
-  window.updateStatus = function(status) {
-    originalUpdateStatus(status);
-    
-    // Start recording when simulation starts running
-    if (status === "Running" && !recordingStarted) {
-      setTimeout(() => {
-        try {
-          console.log("Simulation running detected, attempting to start recording");
-          if (!window.unityVideoRecorder) {
-            window.unityVideoRecorder = new UnityVideoRecorder({
-              fps: 30,
-              canvasSelector: '#unity-canvas',
-              filename: 'simulation-recording',
-              showNotifications: true,
-              autoStart: false,
-              autoDownload: true,
-              maxRecordingTime: 0
-            });
+      // IMPORTANT: This code intercepts auto-initialization in recorder scripts
+      (function() {
+        // Look for the DOMContentLoaded event handlers in recorder scripts
+        const originalAddEventListener = window.addEventListener;
+        window.addEventListener = function(event, callback, options) {
+          if (event === 'DOMContentLoaded' && 
+              (String(callback).includes('unityVideoRecorder') || 
+               String(callback).includes('UnifiedRecorder'))) {
+            console.log('Intercepted recorder DOMContentLoaded event');
+            // Don't register this event handler
+            return;
           }
           
-          if (window.unityVideoRecorder && !window.unityVideoRecorder.isRecording) {
-            console.log("Starting recording explicitly");
-            window.unityVideoRecorder.startRecording();
-            recordingStarted = true;
-          }
-        } catch (e) {
-          console.error('Error starting recording:', e);
-        }
-      }, 1000);
-    }
-    
-    // Stop recording when simulation is stopped
-    if (status === "Stopped" && recordingStarted) {
-      try {
-        console.log("Simulation stopped detected, stopping recording");
-        if (window.unityVideoRecorder && window.unityVideoRecorder.isRecording) {
-          window.unityVideoRecorder.stopRecording();
-          recordingStarted = false;
-        }
-      } catch (e) {
-        console.error('Error stopping recording:', e);
-      }
-    }
-  };
-  
-  // Ensure stop button also stops recording
-  const stopButton = document.getElementById("stop-button");
-  if (stopButton) {
-    const originalClickHandler = stopButton.onclick;
-    stopButton.onclick = function(e) {
-      // Log that stop button was clicked
-      console.log("Stop button clicked directly");
-      
-      // Explicitly stop any recording
-      try {
-        if (window.unityVideoRecorder && window.unityVideoRecorder.isRecording) {
-          console.log("Stopping recording from button click");
-          window.unityVideoRecorder.stopRecording();
-          recordingStarted = false;
-        } else {
-          console.log("No active recording to stop");
-        }
-      } catch (e) {
-        console.error('Error stopping recording:', e);
-      }
-      
-      // Continue with original click handling
-      if (typeof originalClickHandler === 'function') {
-        originalClickHandler.call(this, e);
-      }
-    };
-  }
-});
-
-
+          // Call the original addEventListener for all other events
+          return originalAddEventListener.call(window, event, callback, options);
+        };
+      })();
     </script>
   </body>
 </html>

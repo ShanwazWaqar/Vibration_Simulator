@@ -1,0 +1,735 @@
+/**
+ * UnityCanvasRecorder.js
+ * 
+ * A lightweight, cross-platform solution for recording Unity WebGL canvas output.
+ * Works on desktop and mobile browsers, including iOS Safari.
+ * 
+ * Features:
+ * - Direct canvas capture using captureStream()
+ * - Platform-specific optimizations (iOS, Android, Desktop)
+ * - Appropriate MIME type selection based on browser support
+ * - Automatic or manual download options
+ * - Recording status indicator
+ * - Pause/resume functionality
+ */
+
+class UnityCanvasRecorder {
+  /**
+   * Create a new UnityCanvasRecorder
+   * @param {Object} options - Configuration options
+   */
+  constructor(options = {}) {
+    // Configuration with defaults
+    this.config = {
+      canvasSelector: options.canvasSelector || '#unity-canvas',
+      fps: options.fps || 30,
+      videoBitsPerSecond: options.videoBitsPerSecond || 2500000,
+      fileName: options.fileName || 'unity-recording',
+      showIndicator: options.showIndicator !== false,
+      indicatorPosition: options.indicatorPosition || 'bottom-right',
+      autoDownloadOnStop: options.autoDownloadOnStop !== false,
+      customResolution: options.customResolution || null // {width, height} or null for native
+    };
+
+    // State
+    this.state = {
+      isRecording: false,
+      isPaused: false,
+      startTime: null,
+      recordedChunks: [],
+      elapsedPauseTime: 0,
+      lastPauseTime: null
+    };
+
+    // Platform detection
+    this.platform = this.detectPlatform();
+    
+    // Media objects
+    this.mediaRecorder = null;
+    this.canvasStream = null;
+    this.recordingCanvas = null;
+    this.recordingContext = null;
+    
+    // UI elements
+    this.indicator = null;
+    this.timeDisplay = null;
+    this.downloadModal = null;
+    
+    // Find the Unity canvas
+    this.unityCanvas = document.querySelector(this.config.canvasSelector);
+    if (!this.unityCanvas) {
+      console.warn(`Unity canvas not found: ${this.config.canvasSelector}`);
+    }
+    
+    // Timer for updating recording duration
+    this.durationTimer = null;
+    
+    // Bind methods to maintain context
+    this.startRecording = this.startRecording.bind(this);
+    this.stopRecording = this.stopRecording.bind(this);
+    this.pauseRecording = this.pauseRecording.bind(this);
+    this.resumeRecording = this.resumeRecording.bind(this);
+    this.downloadRecording = this.downloadRecording.bind(this);
+    this.updateDurationDisplay = this.updateDurationDisplay.bind(this);
+    this.handleVisibilityChange = this.handleVisibilityChange.bind(this);
+    
+    // Add event listeners
+    document.addEventListener('visibilitychange', this.handleVisibilityChange);
+    
+    // Initialize UI
+    if (this.config.showIndicator) {
+      this.createIndicator();
+    }
+    
+    console.log('Unity Canvas Recorder initialized');
+    console.log('Platform detected:', this.platform);
+  }
+  
+  /**
+   * Detect platform and browser capabilities
+   * @returns {Object} Platform information
+   */
+  detectPlatform() {
+    const ua = navigator.userAgent;
+    const platform = {
+      isIOS: /iPad|iPhone|iPod/.test(ua) && !window.MSStream,
+      isIPad: /iPad/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1),
+      isAndroid: /Android/.test(ua),
+      isMobile: /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(ua),
+      browser: 'unknown',
+      mimeTypes: [],
+      canvasStreamSupported: false
+    };
+    
+    // Detect browser
+    if (/CriOS/.test(ua)) {
+      platform.browser = 'chrome-ios'; // Chrome on iOS
+    } else if (/FxiOS/.test(ua)) {
+      platform.browser = 'firefox-ios'; // Firefox on iOS
+    } else if (/EdgiOS/.test(ua)) {
+      platform.browser = 'edge-ios'; // Edge on iOS
+    } else if (/Chrome/.test(ua)) {
+      platform.browser = 'chrome';
+    } else if (/Firefox/.test(ua)) {
+      platform.browser = 'firefox';
+    } else if (/Safari/.test(ua)) {
+      platform.browser = 'safari';
+    } else if (/Edge|Edg/.test(ua)) {
+      platform.browser = 'edge';
+    }
+    
+    // Check for captureStream support
+    platform.canvasStreamSupported = 
+      typeof HTMLCanvasElement !== 'undefined' && 
+      HTMLCanvasElement.prototype.captureStream;
+    
+    // Determine supported MIME types
+    const mimeTypes = [
+      'video/webm;codecs=vp9',
+      'video/webm;codecs=vp8',
+      'video/webm',
+      'video/mp4'
+    ];
+    
+    platform.mimeTypes = mimeTypes.filter(type => {
+      try {
+        return MediaRecorder.isTypeSupported(type);
+      } catch (e) {
+        return false;
+      }
+    });
+    
+    // Some browsers don't report MP4 support correctly but can use it
+    if (platform.isIOS && !platform.mimeTypes.includes('video/mp4')) {
+      platform.mimeTypes.push('video/mp4');
+    }
+    
+    return platform;
+  }
+  
+  /**
+   * Create recording indicator UI
+   */
+  createIndicator() {
+    // Create container
+    this.indicator = document.createElement('div');
+    this.indicator.className = 'unity-recorder-indicator';
+    this.indicator.style.cssText = `
+      position: absolute;
+      background-color: rgba(0, 0, 0, 0.7);
+      color: white;
+      border-radius: 20px;
+      padding: 8px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      z-index: 9999;
+      font-family: sans-serif;
+      font-size: 14px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    `;
+    
+    // Position the indicator
+    switch (this.config.indicatorPosition) {
+      case 'top-left':
+        this.indicator.style.top = '20px';
+        this.indicator.style.left = '20px';
+        break;
+      case 'top-right':
+        this.indicator.style.top = '20px';
+        this.indicator.style.right = '20px';
+        break;
+      case 'bottom-left':
+        this.indicator.style.bottom = '20px';
+        this.indicator.style.left = '20px';
+        break;
+      case 'bottom-right':
+      default:
+        this.indicator.style.bottom = '20px';
+        this.indicator.style.right = '20px';
+    }
+    
+    // Create recording dot
+    const recordingDot = document.createElement('div');
+    recordingDot.className = 'recording-dot';
+    recordingDot.style.cssText = `
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background-color: #ff3b30;
+      animation: recording-pulse 1s infinite;
+    `;
+    
+    // Create time display
+    this.timeDisplay = document.createElement('span');
+    this.timeDisplay.className = 'recording-time';
+    this.timeDisplay.textContent = '00:00';
+    
+    // Add animation style
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes recording-pulse {
+        0% { opacity: 1; }
+        50% { opacity: 0.5; }
+        100% { opacity: 1; }
+      }
+    `;
+    document.head.appendChild(style);
+    
+    // Assemble indicator
+    this.indicator.appendChild(recordingDot);
+    this.indicator.appendChild(this.timeDisplay);
+    
+    // Add to document
+    document.body.appendChild(this.indicator);
+  }
+  
+  /**
+   * Create offscreen canvas for recording with custom resolution
+   * @returns {HTMLCanvasElement} The offscreen canvas
+   */
+  createOffscreenCanvas() {
+    const canvas = document.createElement('canvas');
+    
+    if (this.config.customResolution) {
+      canvas.width = this.config.customResolution.width;
+      canvas.height = this.config.customResolution.height;
+    } else {
+      // Use Unity canvas size
+      canvas.width = this.unityCanvas.width || this.unityCanvas.clientWidth;
+      canvas.height = this.unityCanvas.height || this.unityCanvas.clientHeight;
+    }
+    
+    return canvas;
+  }
+  
+  /**
+   * Start recording the Unity canvas
+   * @returns {Promise} Resolves when recording starts
+   */
+  async startRecording() {
+    if (this.state.isRecording) {
+      console.warn('Recording already in progress');
+      return;
+    }
+    
+    if (!this.unityCanvas) {
+      console.error('Unity canvas not found, cannot start recording');
+      return;
+    }
+    
+    try {
+      // Check for captureStream support
+      if (!this.platform.canvasStreamSupported) {
+        throw new Error('Canvas captureStream is not supported in this browser');
+      }
+      
+      // Reset state
+      this.state.recordedChunks = [];
+      this.state.elapsedPauseTime = 0;
+      this.state.lastPauseTime = null;
+      
+      // Create offscreen canvas if using custom resolution
+      if (this.config.customResolution) {
+        this.recordingCanvas = this.createOffscreenCanvas();
+        this.recordingContext = this.recordingCanvas.getContext('2d');
+      } else {
+        this.recordingCanvas = this.unityCanvas;
+      }
+      
+      // Capture the canvas stream
+      this.canvasStream = this.recordingCanvas.captureStream(this.config.fps);
+      
+      // Choose the appropriate MIME type
+      let mimeType = 'video/webm';
+      if (this.platform.isIOS) {
+        mimeType = 'video/mp4';
+      } else if (this.platform.mimeTypes.length > 0) {
+        mimeType = this.platform.mimeTypes[0]; // Use first supported type
+      }
+      
+      console.log(`Using MIME type: ${mimeType}`);
+      
+      // Create media recorder with selected MIME type
+      const options = {
+        mimeType: mimeType,
+        videoBitsPerSecond: this.config.videoBitsPerSecond
+      };
+      
+      try {
+        this.mediaRecorder = new MediaRecorder(this.canvasStream, options);
+      } catch (e) {
+        console.warn(`Failed to create MediaRecorder with ${mimeType}:`, e);
+        
+        // Try without specific MIME type
+        this.mediaRecorder = new MediaRecorder(this.canvasStream);
+      }
+      
+      // Set up data handler
+      this.mediaRecorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          this.state.recordedChunks.push(event.data);
+        }
+      };
+      
+      // Start recording
+      this.mediaRecorder.start(1000); // Collect data every second
+      
+      // If using custom resolution, start the frame copy loop
+      if (this.config.customResolution) {
+        this.startFrameCopyLoop();
+      }
+      
+      // Update state
+      this.state.isRecording = true;
+      this.state.isPaused = false;
+      this.state.startTime = Date.now();
+      
+      // Show indicator
+      if (this.indicator) {
+        this.indicator.style.opacity = '1';
+      }
+      
+      // Start duration timer
+      this.updateDurationDisplay();
+      this.durationTimer = setInterval(this.updateDurationDisplay, 1000);
+      
+      console.log('Recording started');
+    } catch (error) {
+      console.error('Failed to start recording:', error);
+      this.cleanupRecording();
+      throw error;
+    }
+  }
+  
+  /**
+   * Start the frame copy loop for custom resolution recording
+   */
+  startFrameCopyLoop() {
+    if (!this.recordingCanvas || !this.recordingContext || !this.unityCanvas) return;
+    
+    // Frame copy function
+    const copyFrame = () => {
+      if (!this.state.isRecording) return;
+      
+      // Skip frame copy if paused
+      if (!this.state.isPaused) {
+        try {
+          this.recordingContext.drawImage(
+            this.unityCanvas, 
+            0, 0, this.unityCanvas.width || this.unityCanvas.clientWidth, this.unityCanvas.height || this.unityCanvas.clientHeight,
+            0, 0, this.recordingCanvas.width, this.recordingCanvas.height
+          );
+        } catch (e) {
+          console.warn('Error copying frame:', e);
+        }
+      }
+      
+      // Schedule next frame
+      this.frameRequestId = requestAnimationFrame(copyFrame);
+    };
+    
+    // Start the loop
+    this.frameRequestId = requestAnimationFrame(copyFrame);
+  }
+  
+  /**
+   * Stop recording
+   * @returns {Promise} Resolves when recording is stopped
+   */
+  async stopRecording() {
+    if (!this.state.isRecording) {
+      console.warn('No recording in progress');
+      return;
+    }
+    
+    return new Promise((resolve, reject) => {
+      try {
+        // Set up completion handler
+        this.mediaRecorder.onstop = () => {
+          // Clean up recording resources
+          this.cleanupRecording();
+          
+          // Download recording if configured
+          if (this.config.autoDownloadOnStop) {
+            this.downloadRecording();
+          }
+          
+          console.log('Recording stopped');
+          resolve();
+        };
+        
+        // Stop the media recorder
+        this.mediaRecorder.stop();
+        
+        // Update state
+        this.state.isRecording = false;
+        this.state.isPaused = false;
+        
+        // Hide indicator
+        if (this.indicator) {
+          this.indicator.style.opacity = '0';
+        }
+        
+        // Stop duration timer
+        clearInterval(this.durationTimer);
+        
+        // Stop frame copy loop if active
+        if (this.frameRequestId) {
+          cancelAnimationFrame(this.frameRequestId);
+          this.frameRequestId = null;
+        }
+      } catch (error) {
+        console.error('Error stopping recording:', error);
+        this.cleanupRecording();
+        reject(error);
+      }
+    });
+  }
+  
+  /**
+   * Pause recording
+   */
+  pauseRecording() {
+    if (!this.state.isRecording || this.state.isPaused) return;
+    
+    try {
+      // Only pause if supported
+      if (this.mediaRecorder && this.mediaRecorder.state === 'recording' && 
+          typeof this.mediaRecorder.pause === 'function') {
+        this.mediaRecorder.pause();
+      }
+      
+      // Update state
+      this.state.isPaused = true;
+      this.state.lastPauseTime = Date.now();
+      
+      // Update indicator
+      if (this.indicator) {
+        this.indicator.style.opacity = '0.5';
+      }
+      
+      console.log('Recording paused');
+    } catch (error) {
+      console.warn('Error pausing recording:', error);
+    }
+  }
+  
+  /**
+   * Resume recording
+   */
+  resumeRecording() {
+    if (!this.state.isRecording || !this.state.isPaused) return;
+    
+    try {
+      // Only resume if supported
+      if (this.mediaRecorder && this.mediaRecorder.state === 'paused' && 
+          typeof this.mediaRecorder.resume === 'function') {
+        this.mediaRecorder.resume();
+      }
+      
+      // Calculate pause duration
+      if (this.state.lastPauseTime) {
+        this.state.elapsedPauseTime += (Date.now() - this.state.lastPauseTime);
+        this.state.lastPauseTime = null;
+      }
+      
+      // Update state
+      this.state.isPaused = false;
+      
+      // Update indicator
+      if (this.indicator) {
+        this.indicator.style.opacity = '1';
+      }
+      
+      console.log('Recording resumed');
+    } catch (error) {
+      console.warn('Error resuming recording:', error);
+    }
+  }
+  
+  /**
+   * Clean up recording resources
+   */
+  cleanupRecording() {
+    // Stop media recorder if active
+    if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
+      try {
+        this.mediaRecorder.stop();
+      } catch (e) {
+        // Ignore errors during cleanup
+      }
+    }
+    
+    // Release canvas stream tracks
+    if (this.canvasStream) {
+      this.canvasStream.getTracks().forEach(track => track.stop());
+      this.canvasStream = null;
+    }
+    
+    // Clear custom canvas if used
+    if (this.recordingCanvas !== this.unityCanvas) {
+      this.recordingCanvas = null;
+      this.recordingContext = null;
+    }
+    
+    // Reset state
+    this.mediaRecorder = null;
+    
+    // Stop timers
+    clearInterval(this.durationTimer);
+    this.durationTimer = null;
+    
+    // Stop frame copy loop if active
+    if (this.frameRequestId) {
+      cancelAnimationFrame(this.frameRequestId);
+      this.frameRequestId = null;
+    }
+    
+    // Hide indicator
+    if (this.indicator) {
+      this.indicator.style.opacity = '0';
+    }
+  }
+  
+  /**
+   * Download the recorded video
+   */
+  downloadRecording() {
+    if (this.state.recordedChunks.length === 0) {
+      console.warn('No recorded data available');
+      return;
+    }
+    
+    try {
+      // Determine file type based on MIME type
+      const mimeType = this.platform.isIOS ? 'video/mp4' : 'video/webm';
+      const fileExtension = this.platform.isIOS ? 'mp4' : 'webm';
+      
+      // Create blob from recorded chunks
+      const blob = new Blob(this.state.recordedChunks, { type: mimeType });
+      
+      // Generate filename
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const filename = `${this.config.fileName}-${timestamp}.${fileExtension}`;
+      
+      // Handle download based on platform
+      if (this.platform.isIOS) {
+        this.showIOSDownloadModal(blob, filename);
+      } else {
+        this.triggerDownload(blob, filename);
+      }
+    } catch (error) {
+      console.error('Error downloading recording:', error);
+    }
+  }
+  
+  /**
+   * Trigger standard download for desktop and Android
+   * @param {Blob} blob - The recorded video blob
+   * @param {string} filename - The filename to use
+   */
+  triggerDownload(blob, filename) {
+    // Create download URL
+    const url = URL.createObjectURL(blob);
+    
+    // Create download link
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    a.download = filename;
+    
+    // Trigger download
+    document.body.appendChild(a);
+    a.click();
+    
+    // Clean up
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 100);
+    
+    console.log(`Recording downloaded as ${filename}`);
+  }
+  
+  /**
+   * Show download modal for iOS devices
+   * @param {Blob} blob - The recorded video blob
+   * @param {string} filename - The filename to use
+   */
+  showIOSDownloadModal(blob, filename) {
+    // Create download URL
+    const url = URL.createObjectURL(blob);
+    
+    // Create modal if it doesn't exist yet
+    if (!this.downloadModal) {
+      this.downloadModal = document.createElement('div');
+      this.downloadModal.className = 'unity-recorder-modal';
+      this.downloadModal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 10000;
+      `;
+      document.body.appendChild(this.downloadModal);
+    }
+    
+    // Set modal content
+    this.downloadModal.innerHTML = `
+      <div style="background-color: white; border-radius: 12px; padding: 24px; max-width: 90%; width: 320px; text-align: center;">
+        <h3 style="margin-top: 0; margin-bottom: 16px; color: #333; font-size: 18px; font-family: sans-serif;">Download Recording</h3>
+        
+        <p style="margin-bottom: 20px; color: #666; font-size: 14px; font-family: sans-serif; line-height: 1.4;">
+          Tap and hold the button below, then select "Download Video" or "Save to Files".
+        </p>
+        
+        <a href="${url}" download="${filename}" id="ios-download-button" style="display: inline-block; background-color: #BA0C2F; color: white; font-family: sans-serif; font-size: 16px; font-weight: 600; padding: 12px 20px; border-radius: 8px; text-decoration: none; margin-bottom: 16px;">
+          Download Video
+        </a>
+        
+        <p style="margin-bottom: 20px; color: #666; font-size: 12px; font-family: sans-serif;">
+          (Video format: ${this.platform.isIOS ? 'MP4' : 'WebM'})
+        </p>
+        
+        <button id="close-modal-button" style="background-color: #f2f2f2; border: none; border-radius: 8px; padding: 10px 16px; font-size: 14px; font-family: sans-serif; color: #333; cursor: pointer; width: 100%;">
+          Close
+        </button>
+      </div>
+    `;
+    
+    // Show the modal
+    this.downloadModal.style.display = 'flex';
+    
+    // Add close button handler
+    const closeButton = document.getElementById('close-modal-button');
+    if (closeButton) {
+      closeButton.addEventListener('click', () => {
+        this.downloadModal.style.display = 'none';
+        URL.revokeObjectURL(url);
+      });
+    }
+    
+    console.log('iOS download modal shown');
+  }
+  
+  /**
+   * Update recording duration display
+   */
+  updateDurationDisplay() {
+    if (!this.timeDisplay) return;
+    
+    // Calculate duration
+    let elapsed = 0;
+    if (this.state.startTime) {
+      elapsed = Date.now() - this.state.startTime - this.state.elapsedPauseTime;
+      
+      // If currently paused, don't count time since pause
+      if (this.state.isPaused && this.state.lastPauseTime) {
+        elapsed -= (Date.now() - this.state.lastPauseTime);
+      }
+    }
+    
+    // Format as MM:SS
+    const seconds = Math.floor((elapsed / 1000) % 60);
+    const minutes = Math.floor((elapsed / (1000 * 60)) % 60);
+    this.timeDisplay.textContent = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  }
+  
+  /**
+   * Handle visibility change (tab switching)
+   */
+  handleVisibilityChange() {
+    if (document.hidden) {
+      // Auto-pause when tab is not visible
+      if (this.state.isRecording && !this.state.isPaused) {
+        this.pauseRecording();
+      }
+    } else {
+      // Auto-resume when tab becomes visible again
+      if (this.state.isRecording && this.state.isPaused) {
+        this.resumeRecording();
+      }
+    }
+  }
+  
+  /**
+   * Destroy the recorder and clean up resources
+   */
+  destroy() {
+    // Stop any active recording
+    if (this.state.isRecording) {
+      this.stopRecording();
+    }
+    
+    // Remove event listeners
+    document.removeEventListener('visibilitychange', this.handleVisibilityChange);
+    
+    // Remove UI elements
+    if (this.indicator && this.indicator.parentNode) {
+      this.indicator.parentNode.removeChild(this.indicator);
+    }
+    
+    if (this.downloadModal && this.downloadModal.parentNode) {
+      this.downloadModal.parentNode.removeChild(this.downloadModal);
+    }
+    
+    console.log('Unity Canvas Recorder destroyed');
+  }
+}
+
+// Make available globally
+window.UnityCanvasRecorder = UnityCanvasRecorder;
+
+// Initialize when the page loads
+document.addEventListener('DOMContentLoaded', () => {
+  // Don't automatically create an instance - let the user do it
+  console.log('Unity Canvas Recorder available');
+});
